@@ -188,12 +188,15 @@ class InstallTests(unittest.TestCase):
 
     def test_integration_never_enables_a_disabled_plugin(self):
         with tempfile.TemporaryDirectory(prefix="bark-disabled-plugin-") as temporary:
-            home = Path(temporary)
+            physical = Path(temporary) / "physical-home"
+            physical.mkdir()
+            home = Path(temporary) / "linked-home"
+            home.symlink_to(physical, target_is_directory=True)
             (home / "config.toml").write_text('[plugins."barknotify@barknotify-plugin"]\nenabled = false\n')
             with patch.object(installer, "resolve_binary", return_value="fake-codex"), patch.object(installer, "native_command", return_value={"installed": [{"pluginId": installer.SELECTOR, "enabled": False}]}) as native:
                 with self.assertRaisesRegex(installer.BarkError, "enabled"):
                     installer.integrate([home], home / "private")
-            native.assert_called_once_with("fake-codex", home, "list", "--json")
+            native.assert_called_once_with("fake-codex", home.resolve(), "list", "--json")
             self.assertFalse((home / "private").exists())
 
     def test_single_target_home_discovers_its_own_private_settings(self):
