@@ -4,7 +4,7 @@ Every command is available through the installed bundle's `scripts/barknotify.py
 
 ## Optional CLI
 
-Clone the private repository with an authorized GitHub account:
+Clone the repository:
 
 ```bash
 git clone https://github.com/Jinghaoleven/BarkNotify-Plugin.git
@@ -30,6 +30,17 @@ barknotify-plugin doctor
 ```
 
 `install` creates a local marketplace from the tool's bundle. `integrate` refreshes an already installed plugin from its existing marketplace and connects hooks without replacing that source. `install` refuses to overwrite an existing native marketplace installation; use `integrate` for it.
+
+## Manual setup from a checkout
+
+Follow the [iPhone preparation steps](../README.md#quick-start), then register/install the plugin as described there. From a checkout, configure without installing a global CLI:
+
+```bash
+python3 barknotify_plugin/scripts/barknotify.py setup --integrate
+python3 barknotify_plugin/scripts/barknotify.py doctor
+```
+
+Use `setup --integrate --language zh` for Chinese notifications. Copy **Address and Key** from the Bark App's Copy menu and enter it in the local terminal. Older example push URLs are accepted too; example titles, bodies, and query parameters are discarded. A curl command or JSON example is not a push URL.
 
 ## Preferences
 
@@ -66,7 +77,7 @@ For tool-managed installations use `install` with the same repeated options. `un
 
 ## Credentials
 
-Use `setup` to enter a URL or key locally with hidden input. Use the Bark device key, not an APNs token. A full URL selects its server; `--server` accepts an origin without a key or `/push` path.
+Use `setup` to enter a URL or key locally with hidden input, after preparing the Bark App on your phone. Use the Bark device key, not an APNs token. A full URL selects its server; `--server` accepts an origin without a key or `/push` path.
 
 `setup --key-stdin` supports a local password-manager pipe. The variable named by `device_key_env` (default `BARKNOTIFY_DEVICE_KEY`) overrides a saved key. Setup reports a conflicting environment key before replacing saved credentials. Keys never enter arguments, status output, or hook output. Do not share credentials or unredacted URLs in issues.
 

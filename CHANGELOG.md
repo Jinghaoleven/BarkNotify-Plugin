@@ -1,9 +1,15 @@
 # Changelog
 
+## 0.4.1 — Beta
+
+- Describe the final open-source installation flow without development-only access requirements.
+- Add App Store, notification permission, Copy Address and Key, and self-hosted phone setup instructions.
+- Accept Bark example push URLs while discarding their message fields and query parameters.
+
 ## 0.4.0 — Beta
 
 - Rename the product to BarkNotify-Plugin, the package and command to `barknotify-plugin`, and the native plugin to `barknotify@barknotify-plugin`.
-- Distribute through the private GitHub repository with native installation and setup guidance.
+- Distribute through the GitHub repository with native installation and setup guidance.
 - Retain the repository’s existing Apache-2.0 license and align package metadata.
 - Preserve legacy Codex Bark settings and environment variables; remove old plugin registrations during migration to prevent duplicate notifications.
 

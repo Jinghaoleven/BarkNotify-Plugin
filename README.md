@@ -13,30 +13,36 @@ BarkNotify-Plugin is an Apache-2.0-licensed plugin for [Bark](https://github.com
 
 ## Quick start
 
-You need an iPhone with Bark installed and notifications allowed, Python 3.11+, curl, and Codex with native plugin management on macOS or Linux. The computer running Codex must be able to reach your Bark server.
+On the computer running Codex, have Git, Python 3.11+, curl, and Codex with native plugin management. macOS and Linux are supported. **Install and set up the Bark App separately on your iPhone.**
 
-Install directly from the private GitHub repository using an account with access. Set up GitHub authentication on this computer first; Codex uses Git to fetch the marketplace.
+### 1. Prepare your iPhone
+
+1. Install [Bark from the App Store](https://apps.apple.com/app/bark-custom-notifications/id1403753865) and open it.
+2. Enable notifications when prompted, or tap **Enable** in Bark. If previously denied, open **iPhone Settings → Notifications → Bark → Allow Notifications**, then return to Bark. Critical alerts are optional for our default notifications.
+3. Keep the default server, `api.day.app`. Open the menu beside **Copy** and choose **Copy Address and Key**. In older versions, copy the displayed test URL instead. Wait for your device's key to appear before copying.
+
+For a self-hosted Bark server, add and select it **in the Bark App first**, then copy that server's address and key for your phone.
+
+### 2. Install the Codex plugin
 
 ```bash
 codex plugin marketplace add https://github.com/Jinghaoleven/BarkNotify-Plugin.git
 codex plugin add barknotify@barknotify-plugin
 ```
 
-Start a new Codex session and use the setup prompt below. The bundled skill connects the plugin and guides private Bark configuration. To configure manually from a checkout, use `codex plugin marketplace add .`, install the plugin, then run `python3 barknotify_plugin/scripts/barknotify.py setup --integrate` and `python3 barknotify_plugin/scripts/barknotify.py doctor`. A PyPI package and hosted installer have not been published.
+### 3. Connect your phone
 
-Setup asks for the **Bark push URL or device key in your terminal**, with input hidden. A URL such as `https://api.day.app/DEVICE_KEY/` selects its server automatically; self-hosted Bark works the same way. Do not paste the URL or key into a Codex conversation.
+Start a new Codex session, open the plugin's setup entry in `/plugins` if available, or use this prompt:
 
-The test result means the Bark server accepted the push. **Check that the notification appears on your phone.** Then start a new Codex session, open `/hooks`, and review and trust the Bark handlers. Run a short turn and check that its automatic notification arrives. Setup cannot grant hook trust or confirm phone delivery for you.
+> Use barknotify to set up Bark notifications. Connect the session hooks and guide me through entering my Bark URL in a local terminal. Use English notifications.
 
-Native plugin loading and integration were verified on Linux with Codex CLI 0.166.0. Other versions and macOS native integration still need validation; see [compatibility](docs/compatibility.md).
+Setup asks for the copied URL **in your local terminal, with input hidden**. Both `https://api.day.app/DEVICE_KEY` and older example URLs with a title/body are accepted; only the server and key are saved. Do not paste the URL into chat or paste a curl command into setup. A global CLI is optional; see [manual setup](docs/usage.md#manual-setup-from-a-checkout).
 
-## Let Codex guide setup
+### 4. Verify delivery
 
-After installing the plugin, start a new session and open its setup entry in `/plugins`, when available. You can also use this prompt:
+Confirm the **BarkNotify-Plugin · Test** notification appears on your phone. Then restart Codex, review and trust the Bark handlers in `/hooks`, and finish a short turn to check its automatic notification. Server acceptance alone does not confirm phone delivery.
 
-> Use the Bark plugin's barknotify skill to finish setup. Reuse my existing marketplace and settings, connect the session hooks, and guide me through entering my Bark URL privately in a local terminal. Check delivery and hook trust. Use English notifications.
-
-The [guided setup](install.md) also works from a checkout. The installed plugin carries everything needed to run its commands; an additional CLI installation is optional.
+After this one-time phone setup, notifications arrive through iOS; Bark does not need to stay open. Native Codex integration was verified on Linux with CLI 0.166.0; see [compatibility](docs/compatibility.md) for other versions and platforms.
 
 ## Everyday use
 
@@ -82,6 +88,7 @@ Run this before native `/plugins` removal if you rely on the cached bundle for c
 | Symptom | Next step |
 | --- | --- |
 | Key is missing | Run `setup` in a local terminal and enter the URL shown in Bark |
+| The App has no device URL or its Copy menu is disabled | Allow notifications, return to Bark, and wait for registration on an active network |
 | Test succeeds but the phone is silent | Check Bark notification permission, iPhone Focus settings, and the key's target device |
 | Manual test works but automatic notifications do not | Run `doctor`, enable Bark in `/plugins`, review `/hooks`, and start a new session |
 | Hooks are missing after an update | Run `integrate` again using the installed bundle or optional CLI |

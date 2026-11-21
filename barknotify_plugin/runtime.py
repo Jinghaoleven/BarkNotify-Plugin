@@ -129,13 +129,14 @@ def initialize(directory=None):
 
 
 def parse_destination(value, server=None):
-    """Accept the push URL from Bark, without ever echoing its credential."""
+    """Accept Bark's device or example push URL; discard example message fields."""
     value = value.strip()
     if "://" in value:
         try:
             parsed = urlsplit(value)
-            segments = parsed.path.strip("/").split("/")
-            if parsed.username or parsed.password or parsed.query or parsed.fragment or len(segments) != 1:
+            segments = parsed.path.removeprefix("/").rstrip("/").split("/")
+            if (parsed.username or parsed.password or parsed.fragment or
+                    not 1 <= len(segments) <= 4 or not all(segments)):
                 raise ValueError()
             key = unquote(segments[0])
             origin = parsed.scheme + "://" + parsed.netloc
@@ -145,7 +146,7 @@ def parse_destination(value, server=None):
         except BarkError:
             raise
         except ValueError:
-            raise BarkError("Use the Bark push URL in the form https://server/DEVICE_KEY/.") from None
+            raise BarkError("Use a Bark device URL or example push URL.") from None
     else:
         key, origin = value, server or DEFAULTS["server_url"]
     if not re.fullmatch(r"[A-Za-z0-9_-]+", key):

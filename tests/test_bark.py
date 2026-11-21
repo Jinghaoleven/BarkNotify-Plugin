@@ -210,6 +210,22 @@ class BarkTests(unittest.TestCase):
         self.assertNotIn("new-secret-key", status)
         self.assertTrue(json.loads(status)["enabled"])
 
+    def test_setup_accepts_bark_example_urls_without_sending_their_message(self):
+        origin = "http://127.0.0.1:" + str(self.server.server_port)
+        for example in ("Example%20body", "Example%20title/Example%20body?group=example&ttl=600",
+                        "Example%20title/Example%20subtitle/Example%20body"):
+            url = origin + "/app-device-key/" + example
+            result = self.run_command("setup", "--key-stdin", input=url)
+            payload = self.requests[-1][1]
+            self.assertEqual(payload["device_key"], "app-device-key")
+            self.assertEqual(payload["title"], "BarkNotify-Plugin · Test")
+            self.assertNotIn("Example", payload["body"])
+            self.assertNotIn("app-device-key", result.stdout + result.stderr)
+            config = json.loads((self.root / "config" / "config.json").read_text())
+            self.assertEqual(config["server_url"], origin)
+            self.assertEqual(config["group"], "codex")
+            self.assertTrue(config["enabled"])
+
     def test_setup_verification_failure_keeps_delivery_disabled(self):
         self.code = 500
         result = self.run_command("setup", "--key-stdin", input="replacement-key", expected=1)
@@ -264,7 +280,8 @@ class BarkTests(unittest.TestCase):
         self.assertEqual(self.requests, [])
 
     def test_invalid_push_urls_produce_safe_errors(self):
-        for value in ("https://user:secret@server/key", "https://server/secret/title", "https://server/secret?extra=1"):
+        for value in ("https://user:secret@server/key", "https://server/secret/title/subtitle/body/extra",
+                      "https://server/%2Fsecret", "https://server//secret/body", "https://server/secret/body#fragment"):
             with self.assertRaises(bark.BarkError) as caught:
                 bark.parse_destination(value)
             self.assertNotIn("secret", str(caught.exception))

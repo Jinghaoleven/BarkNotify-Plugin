@@ -13,30 +13,36 @@ my-project · 审批请求
 
 ## 快速开始
 
-需要 iPhone 已安装 Bark 并允许通知；macOS 或 Linux 上有 Python 3.11+、curl，以及支持原生插件管理的 Codex。运行 Codex 的电脑须能访问所选 Bark 服务器。
+运行 Codex 的电脑需要 Git、Python 3.11+、curl，以及支持原生插件管理的 Codex，支持 macOS 和 Linux。**Bark App 需要你另行在 iPhone 上安装并设置。**
 
-使用有权限的 GitHub 账户从私有仓库安装。先在这台电脑完成 GitHub 的 Git 认证，Codex 会通过 Git 下载 marketplace：
+### 1. 准备手机
+
+1. 从 [App Store 安装 Bark](https://apps.apple.com/app/bark-custom-notifications/id1403753865)，并首次打开 App。
+2. 按提示允许通知，或点 Bark 的“**去开启**”。如果此前拒绝过，进入 **iPhone 设置 → 通知 → Bark → 允许通知**，再回到 Bark。默认通知不要求开启“重要警告”。
+3. 使用默认服务器 `api.day.app`。等首页出现该设备的 key 后，打开“**复制**”旁的菜单，选择“**复制地址和Key**”；旧版本可复制页面显示的测试推送 URL。
+
+使用自建 Bark 服务器时，先**在 Bark App 中添加并选择该服务器**，再复制它为这台手机生成的地址和 key。
+
+### 2. 安装 Codex 插件
 
 ```bash
 codex plugin marketplace add https://github.com/Jinghaoleven/BarkNotify-Plugin.git
 codex plugin add barknotify@barknotify-plugin
 ```
 
-启动新 Codex 会话，使用下面的配置提示词。插件 skill 会完成接入并引导私密配置 Bark。如果从 checkout 手动配置，先用 `codex plugin marketplace add .` 注册并安装插件，再运行 `python3 barknotify_plugin/scripts/barknotify.py setup --integrate --language zh` 和 `python3 barknotify_plugin/scripts/barknotify.py doctor`。目前没有发布 PyPI 包或在线安装脚本。
+### 3. 连接手机
 
-setup 在**本机终端隐藏输入**完整 Bark 推送 URL 或 device key，例如 `https://api.day.app/DEVICE_KEY/`，并自动识别服务器。自建 Bark 使用相同流程。不要将 URL 或 key 粘贴到 Codex 对话中。
+启动新的 Codex 会话，打开 `/plugins` 中的插件 setup 入口（若当前版本提供），或发送：
 
-测试成功表示 Bark 服务器已接受推送，**还需要确认手机确实显示通知**。随后启动新的 Codex 会话，在 `/hooks` 中审阅并信任 Bark handlers，再完成一个简短回合，确认自动通知送达。安装器不会代替用户授予信任，也无法判断手机是否收到通知。
+> 请用 barknotify 配置 Bark 通知，接入会话 hooks，引导我在本机终端输入 Bark URL，通知使用中文。
 
-已在 Linux、Codex CLI 0.166.0 上验证原生插件加载及接入。其他版本与 macOS 原生集成仍需验证，详见 [兼容说明](docs/compatibility.md)。
+setup 会要求你在**本机终端隐藏输入**刚复制的地址。`https://api.day.app/DEVICE_KEY` 和带示例标题、正文的旧版测试 URL 都能识别，只保存服务器和 key。不要把地址发到聊天中，也不要向 setup 粘贴整段 curl 命令。全局 CLI 是可选项，[手动配置方法](docs/usage.md#manual-setup-from-a-checkout)见命令参考。
 
-## 让 Codex 引导配置
+### 4. 验证通知
 
-安装后，在新会话的 `/plugins` 中打开插件 setup 入口（若当前版本提供），或发送：
+确认手机实际收到 **BarkNotify-Plugin · Test**。随后重启 Codex，在 `/hooks` 中审阅并信任 Bark handlers，再完成一个简短回合，确认自动通知送达。服务器接受推送不等于手机已经显示通知。
 
-> 请使用 Bark 插件的 barknotify skill 完成配置，复用现有 marketplace 和设置，接入会话 hooks，引导我在本机终端私密输入 Bark URL，检查推送和 hook 信任状态，通知使用中文。
-
-也可以从 checkout 按 [引导安装](install.md) 操作。插件包含完整运行脚本，额外安装 CLI 是可选项。
+手机端只需完成这次设置，之后通过 iOS 接收通知，Bark 无需一直开着。已在 Linux、Codex CLI 0.166.0 上验证原生集成，其他版本和平台见 [兼容说明](docs/compatibility.md)。
 
 ## 日常使用
 
@@ -82,6 +88,7 @@ python3 barknotify_plugin/scripts/barknotify.py uninstall
 | 现象 | 下一步 |
 | --- | --- |
 | 找不到 key | 在本机终端运行 `setup`，输入 Bark 显示的 URL |
+| App 没有设备地址，或复制菜单不可用 | 开启通知后回到 Bark，保持联网，等待注册完成 |
 | 测试成功，手机没有通知 | 检查 Bark 通知权限、iPhone 专注模式及 key 对应的设备 |
 | 手动测试正常，自动通知不工作 | 运行 `doctor`，在 `/plugins` 启用，在 `/hooks` 审阅，再启动新会话 |
 | 更新后缺少 hooks | 用已安装脚本或 CLI 重新运行 `integrate` |
