@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "barknotify",
+  "version": "0.4.0",
+  "description": "Bark push notifications for Codex sessions.",
+  "license": "Apache-2.0",
+  "keywords": [
+    "notifications",
+    "bark",
+    "codex"
+  ],
+  "extensions": {
+    "com.openai": {
+      "hooks": "./assets/lifecycle-hooks.json",
+      "onboardingSkill": "./skills/barknotify/SKILL.md",
+      "interface": {
+        "displayName": "BarkNotify-Plugin",
+        "shortDescription": "Know when Codex needs your attention",
+        "category": "Productivity"
+      }
+    }
+  }
+}

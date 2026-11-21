@@ -1,0 +1,20 @@
+{
+  "name": "barknotify-plugin",
+  "interface": {
+    "displayName": "BarkNotify-Plugin"
+  },
+  "plugins": [
+    {
+      "name": "barknotify",
+      "source": {
+        "source": "local",
+        "path": "./barknotify_plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

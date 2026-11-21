@@ -1,0 +1,11 @@
+{
+  "description": "Bark hook template installed into the selected Codex user home.",
+  "hooks": {
+    "SessionStart": [{"matcher": "startup|resume|fork|clear", "hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/scripts/barknotify.py\" hook", "async": true, "timeout": 12}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/scripts/barknotify.py\" hook", "async": true, "timeout": 12}]}],
+    "PermissionRequest": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/scripts/barknotify.py\" hook", "async": true, "timeout": 12}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/scripts/barknotify.py\" hook", "async": true, "timeout": 12}]}],
+    "Interrupt": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/scripts/barknotify.py\" hook", "timeout": 3}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/scripts/barknotify.py\" hook", "timeout": 3}]}]
+  }
+}
