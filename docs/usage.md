@@ -4,7 +4,7 @@ Run these commands on the host where you use Codex. For SSH or containers, open 
 
 ## Manual setup from the installed plugin
 
-First [prepare your iPhone and install the plugin](../README.md#install). Then run:
+First [configure the mobile app and install the plugin](../README.md#install). Then run:
 
 ```bash
 barknotify_script="$(codex plugin add barknotify@barknotify-plugin --json |
@@ -17,7 +17,7 @@ python3 "$barknotify_script" doctor
 
 At the hidden input prompt, paste the device address from Bark's **Copy → Copy Address and Key** menu. Older test URLs work too. Do not paste a curl command or send your address in chat. To use Chinese notifications, add `--language zh` to the setup command.
 
-Confirm **BarkNotify-Plugin · Test** appears on your iPhone, then restart Codex and trust Bark in `/hooks`. Finish a short turn to verify automatic notifications.
+Confirm **BarkNotify-Plugin · Test** appears on your iOS device, then restart Codex and trust Bark in `/hooks`. Finish a short turn to verify automatic notifications.
 
 ## Everyday commands
 
@@ -31,7 +31,7 @@ python3 "$barknotify_script" disable
 python3 "$barknotify_script" enable
 ```
 
-`test` sends a real notification. `status` shows settings; `doctor` checks setup. A successful check does not confirm the phone displayed a notification.
+`test` sends a real notification. `status` shows settings; `doctor` checks setup. A successful check does not confirm the mobile device displayed a notification.
 
 ## Preferences
 
@@ -76,11 +76,11 @@ curl -q -sS -o /dev/null -w 'HTTP %{http_code}\n' \
 
 HTTP 200 means the default Bark server is reachable. CONNECT 403 means the proxy refused access: ask your network administrator to allow `api.day.app:443`, or configure a working proxy in the terminal used to launch Codex. Keep your saved key. GitHub access alone does not confirm Bark access.
 
-Once access works, run `setup` again and press Enter to keep the key. Confirm the phone test. For HTTP 429, wait before retrying; for HTTP 5xx, retry when the Bark server recovers.
+Once access works, run `setup` again and press Enter to keep the key. Confirm the notification on the mobile device. For HTTP 429, wait before retrying; for HTTP 5xx, retry when the Bark server recovers.
 
-## Phone address and settings
+## Device address and settings
 
-To change phones, run `setup` and enter the new phone's address. For a self-hosted Bark server, add and select it in the App before copying the address.
+To change the receiving device, run `setup` and enter its address. For a self-hosted Bark server, add and select it in the App before copying the address.
 
 Settings are stored under `${XDG_CONFIG_HOME:-~/.config}/barknotify-plugin`. Use `--config-dir` to choose another settings directory. `BARKNOTIFY_DEVICE_KEY` can supply a key through your local environment; keep it out of chat and tracked files.
 
@@ -94,7 +94,7 @@ codex plugin add barknotify@barknotify-plugin
 python3 "${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py" integrate
 ```
 
-Restart Codex and review `/hooks`. Your phone address and preferences are kept. Run the last command again after updating Codex itself.
+Restart Codex and review `/hooks`. Your device address and preferences are kept. Run the last command again after updating Codex itself.
 
 ## Removal
 

@@ -2,6 +2,14 @@
 
 User setup is covered by the [README](../README.md) and [command reference](usage.md). Agent-assisted setup instructions are in [install.md](../install.md).
 
+## Product scope and preview
+
+The primary audience uses Codex CLI on remote servers or clusters over SSH and wants iOS delivery beyond the remote terminal. Local CLI use remains possible. The [official Codex app settings](https://developers.openai.com/codex/app/settings/#notifications) document desktop turn-completion notifications; do not describe every Codex surface as lacking notifications.
+
+The [official Bark README](https://github.com/Finb/Bark) describes iOS notifications and APNs. Android projects found in the community are separate from the official client and have not been validated for this plugin; Android is outside the current support scope.
+
+`assets/notification-preview.png` is an illustration of the plugin's default English notification titles and bodies, not a captured device screenshot. It contains no personal information or credentials. Regenerate it with `python3 docs/assets/render_preview.py`, using Pillow and DejaVu Sans fonts. This tooling is only needed to edit the artwork.
+
 ## Validation
 
 ```bash
