@@ -1,10 +1,10 @@
-# CLI and configuration
+# Command reference
 
-Every command is available through the installed bundle's `scripts/barknotify.py`. No checkout or global CLI is needed for a marketplace installation; use the steps below. Later examples use the optional global `barknotify-plugin` command for brevity.
+Run these commands on the host where you use Codex. For SSH or containers, open a terminal in that same environment.
 
 ## Manual setup from the installed plugin
 
-Follow the [iPhone preparation steps](../README.md#quick-start), and register the marketplace as described there. In a terminal on the **host running Codex**, install or refresh the plugin and discover its script from Codex's JSON response:
+First [prepare your iPhone and install the plugin](../README.md#install). Then run:
 
 ```bash
 barknotify_script="$(codex plugin add barknotify@barknotify-plugin --json |
@@ -15,128 +15,97 @@ python3 "$barknotify_script" setup
 python3 "$barknotify_script" doctor
 ```
 
-Integration creates the stable per-home script used by the last three commands. Avoid hardcoding a versioned cache path: plugin refreshes can replace it. Once integrated, you can run this from any working directory:
+At the hidden input prompt, paste the device address from Bark's **Copy → Copy Address and Key** menu. Older test URLs work too. Do not paste a curl command or send your address in chat. To use Chinese notifications, add `--language zh` to the setup command.
+
+Confirm **BarkNotify-Plugin · Test** appears on your iPhone, then restart Codex and trust Bark in `/hooks`. Finish a short turn to verify automatic notifications.
+
+## Everyday commands
+
+After setup, use these commands from any directory:
 
 ```bash
-python3 "${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py" setup
+barknotify_script="${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py"
+python3 "$barknotify_script" status
+python3 "$barknotify_script" test
+python3 "$barknotify_script" disable
+python3 "$barknotify_script" enable
 ```
 
-For SSH, containers, or remote workspaces, open a separate terminal in that same environment, with the same user and `CODEX_HOME`. Configuring your laptop's Codex does not configure a remote host. Copy **Address and Key** from Bark on your iPhone, transfer it privately to that terminal, and paste it only at setup's hidden input prompt. Never paste it into an agent tool transcript or chat. Add `--language zh` for Chinese notifications.
+`test` sends a real notification. `status` shows settings; `doctor` checks setup. A successful check does not confirm the phone displayed a notification.
 
-Confirm **BarkNotify-Plugin · Test** appears on the phone. Then start a new Codex session using the same home and review Bark in `/hooks`. Integration registers six lifecycle handlers; only turn completion and approval requests send notifications by default. `doctor` reports a missing key and disabled delivery before setup, and untrusted hooks until your review; these are pending setup steps. Do not enable delivery alone to resolve a missing key. A successful `doctor` does not verify phone display.
+## Preferences
 
-## Optional CLI
-
-Clone the repository:
+Change language without sending another test:
 
 ```bash
-git clone https://github.com/Jinghaoleven/BarkNotify-Plugin.git
-cd BarkNotify-Plugin
-uv tool install .
+python3 "$barknotify_script" setup --language zh --no-test
+python3 "$barknotify_script" setup --language en --no-test
 ```
 
-Alternatively use `pipx install .`. Either tool can also install a downloaded release wheel. There is no published PyPI package yet. Installing the CLI alone does not connect session hooks.
-
-For an already installed marketplace plugin:
+Choose notification events:
 
 ```bash
-barknotify-plugin setup --integrate
-barknotify-plugin doctor
+python3 "$barknotify_script" setup --events turn.completed,approval.required,turn.interrupted --no-test
 ```
 
-For a standalone tool-managed installation:
+| Event | Default | Notification |
+| --- | --- | --- |
+| `turn.completed` | On | A turn ended, including when Codex waits for your reply |
+| `approval.required` | On | Approval was requested; it may be resolved automatically |
+| `session.started` | Off | A session started or resumed |
+| `turn.started` | Off | Codex received a prompt |
+| `turn.interrupted` | Off | A turn was interrupted |
+| `session.ended` | Off | A session ended; delivery may be delayed |
+
+Choose a notification group and presentation level:
 
 ```bash
-barknotify-plugin install
-barknotify-plugin setup
-barknotify-plugin doctor
+python3 "$barknotify_script" setup --group codex --level timeSensitive --no-test
 ```
 
-`install` creates a local marketplace from the tool's bundle. `integrate` refreshes an already installed plugin from its existing marketplace and connects hooks without replacing that source. `install` refuses to overwrite an existing native marketplace installation; use `integrate` for it.
-
-## Manual setup from a checkout
-
-Follow the [iPhone preparation steps](../README.md#quick-start), then register/install the plugin as described there. From a checkout, configure without installing a global CLI:
-
-```bash
-python3 barknotify_plugin/scripts/barknotify.py setup --integrate
-python3 barknotify_plugin/scripts/barknotify.py doctor
-```
-
-Use `setup --integrate --language zh` for Chinese notifications. Copy **Address and Key** from the Bark App's Copy menu and enter it in the local terminal. Older example push URLs are accepted too; example titles, bodies, and query parameters are discarded. A curl command or JSON example is not a push URL.
+Levels are `active` (default), `passive`, `timeSensitive`, and `critical`. Presentation depends on iOS settings; `critical` requires additional permission in Bark. Preference changes keep your saved key. `--no-test` enables notifications without sending a test.
 
 ## Network and proxy troubleshooting
 
-Check connectivity from the same terminal that runs setup. This check uses no device key and sends no notification:
+Check access without sending a notification:
 
 ```bash
 curl -q -sS -o /dev/null -w 'HTTP %{http_code}\n' \
   --connect-timeout 3 --max-time 8 https://api.day.app/ping
 ```
 
-A reachable default Bark server returns HTTP 200. `Received HTTP code 403 from proxy after CONNECT`, or `Proxy refused the Bark connection (CONNECT HTTP 403)`, means the proxy refused the connection before it reached Bark. Keep the saved key; configure a proxy that can reach `api.day.app:443`, or arrange access through your host's network. Unsetting proxy variables helps only when direct access works. For a self-hosted server, check that server's origin instead.
+HTTP 200 means the default Bark server is reachable. CONNECT 403 means the proxy refused access: ask your network administrator to allow `api.day.app:443`, or configure a working proxy in the terminal used to launch Codex. Keep your saved key. GitHub access alone does not confirm Bark access.
 
-The runtime uses curl's `HTTPS_PROXY`, `ALL_PROXY`, and `NO_PROXY` environment settings. Make the working network configuration available to both setup and the Codex process that runs hooks; setting it only for a one-off test is insufficient for automatic notifications. Keep proxy passwords out of chat, command arguments, and tracked files.
+Once access works, run `setup` again and press Enter to keep the key. Confirm the phone test. For HTTP 429, wait before retrying; for HTTP 5xx, retry when the Bark server recovers.
 
-Once connectivity works, rerun `setup` and press Enter at its hidden prompt to keep the saved key. Confirm the phone test before restarting Codex and reviewing `/hooks`. HTTP 400/404 may require checking the server origin and the device address in Bark; HTTP 429 means wait before retrying, and HTTP 5xx indicates a server failure. Error output reports only status and recovery guidance, never server response bodies.
+## Phone address and settings
 
-## Preferences
+To change phones, run `setup` and enter the new phone's address. For a self-hosted Bark server, add and select it in the App before copying the address.
 
-```bash
-barknotify-plugin events
-barknotify-plugin setup --events turn.completed,approval.required,turn.interrupted --no-test
-barknotify-plugin setup --language zh --no-test
-barknotify-plugin setup --group codex --level timeSensitive --no-test
-barknotify-plugin status --json
-barknotify-plugin doctor --json
-```
+Settings are stored under `${XDG_CONFIG_HOME:-~/.config}/barknotify-plugin`. Use `--config-dir` to choose another settings directory. `BARKNOTIFY_DEVICE_KEY` can supply a key through your local environment; keep it out of chat and tracked files.
 
-Preference changes reuse the key. `--no-test` saves and enables without a verification push. Interruption levels are `active`, `passive`, `timeSensitive`, and `critical`; actual presentation depends on iOS permissions. `test` checks delivery even while automatic notifications are disabled. `enable` and `disable` control automatic delivery.
-
-Requested one-off notification:
-
-```bash
-barknotify-plugin send --title "Build finished" --body "Your build is ready to review."
-```
-
-## Independent Codex homes
-
-Native marketplace registration and plugin installation apply to the current `CODEX_HOME`. Register and install Bark in each desired home before connecting them:
-
-```bash
-barknotify-plugin integrate --codex-home ~/.codex-alpha --codex-home ~/.codex-beta
-```
-
-For tool-managed installations use `install` with the same repeated options. `uninstall` also accepts multiple homes. Other commands take one `--codex-home`. Launchers sharing a home need one installation regardless of provider.
-
-`--codex-bin` selects the executable for install, integrate, setup integration, and diagnostics. `--config-dir` or `BARKNOTIFY_CONFIG_DIR` selects private settings. Otherwise commands discover the directory recorded in the selected Codex home, then fall back to `${XDG_CONFIG_HOME:-~/.config}/barknotify-plugin`. Use separate directories for different keys or preferences.
-
-`install --dry-run`, `integrate --dry-run`, and `uninstall --dry-run` preview changes. Integration uses a stable per-home runtime for compatibility handlers. Changed host configuration gets private backups. Install/integrate restore host files and owned caches if they fail.
-
-## Credentials
-
-Use `setup` to enter a URL or key locally with hidden input, after preparing the Bark App on your phone. Use the Bark device key, not an APNs token. A full URL selects its server; `--server` accepts an origin without a key or `/push` path.
-
-`setup --key-stdin` supports a local password-manager pipe. The variable named by `device_key_env` (default `BARKNOTIFY_DEVICE_KEY`) overrides a saved key. Setup reports a conflicting environment key before replacing saved credentials. Keys never enter arguments, status output, or hook output. Do not share credentials or unredacted URLs in issues.
-
-Legacy `CODEX_BARK_CONFIG_DIR`, `CODEX_BARK_DEVICE_KEY`, and `CODEX_BARK_LABEL` remain accepted; their `BARKNOTIFY_*` equivalents take precedence. Existing recorded config directories and `~/.config/codex-bark` settings are reused when no new directory is selected. Keys are not copied into plugin caches. Custom `device_key_env` names retain their exact behavior.
+Provider launchers sharing `CODEX_HOME` use one installation. If you use separate Codex homes, install and configure the plugin in each one.
 
 ## Updates
 
-| Installation | Update sequence |
-| --- | --- |
-| Checkout marketplace | Update checkout → `codex plugin add barknotify@barknotify-plugin` → bundled `integrate` |
-| Git marketplace | `codex plugin marketplace upgrade barknotify-plugin` → `codex plugin add barknotify@barknotify-plugin` → bundled `integrate` |
-| Tool-managed plugin | Update checkout/wheel → refresh CLI → `barknotify-plugin install` |
+```bash
+codex plugin marketplace upgrade barknotify-plugin
+codex plugin add barknotify@barknotify-plugin
+python3 "${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py" integrate
+```
 
-Refresh a checkout-installed tool with `uv tool install --force .` or `pipx install --force .` from the updated checkout. Marketplace upgrades do not update a separate CLI; CLI updates do not refresh Git marketplace bundles.
-
-`status` reports the executing runtime version and integrated plugin version separately, plus the installation method. `--version` reports only the executing runtime.
-
-Restart Codex and review `/hooks` after changes. After updating Codex itself run `integrate` for marketplace installations or `install` for tool-managed installations. Private credentials and preferences survive. Managed 0.1 installations migrate through `install` while preserving settings.
+Restart Codex and review `/hooks`. Your phone address and preferences are kept. Run the last command again after updating Codex itself.
 
 ## Removal
 
-Run bundled `uninstall` or `barknotify-plugin uninstall` before native removal if you rely on the cache for cleanup. It removes the plugin, owned compatibility handlers, and per-home runtime, preserving settings and marketplace registration. After native removal use the checkout or CLI to finish cleanup.
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py" uninstall
+```
 
-Remove an optional CLI with `uv tool uninstall barknotify-plugin` or `pipx uninstall barknotify-plugin`. Remove the marketplace with `codex plugin marketplace remove barknotify-plugin` after cleanup. Delete private settings separately only if you intend to forget the key and preferences.
+Settings are kept for reinstallation. If already removed through `/plugins`, run `python3 barknotify_plugin/scripts/barknotify.py uninstall` from a repository checkout to finish cleanup.
+
+To remove the marketplace too:
+
+```bash
+codex plugin marketplace remove barknotify-plugin
+```
