@@ -237,17 +237,30 @@ def send(config, title, body, timeout=None):
             "curl", "-q", "--silent", "--show-error", "--fail", "--request", "POST",
             "--header", "Content-Type: application/json; charset=utf-8", "--data-binary", "@-",
             "--connect-timeout", str(min(budget, 2)), "--max-time", str(budget),
+            "--write-out", "\n%{http_code}",
             config["server_url"].rstrip("/") + "/push",
         ], input=payload, capture_output=True, text=True, timeout=budget + 0.25, check=True)
-        if json.loads(result.stdout).get("code") != 200:
+        response, _, _status = result.stdout.rpartition("\n")
+        if json.loads(response).get("code") != 200:
             raise BarkError("Bark rejected the push. Verify the server and device key with barknotify-plugin setup.")
     except FileNotFoundError:
         raise BarkError("curl is missing. Install curl, then run barknotify-plugin doctor.") from None
     except subprocess.TimeoutExpired:
         raise BarkError("Bark request timed out. Check connectivity and proxy settings.") from None
     except subprocess.CalledProcessError as error:
+        if "CONNECT" in (error.stderr or ""):
+            match = re.search(r"(?:HTTP code|response) ([1-5]\d{2})", error.stderr or "")
+            status = " (CONNECT HTTP " + match[1] + ")" if match else " (CONNECT)"
+            raise BarkError("Proxy refused the Bark connection" + status + ". Check HTTPS_PROXY/ALL_PROXY or use a proxy that can reach your Bark server.") from None
         if error.returncode == 22:
-            raise BarkError("Bark returned an HTTP error. Check the server and device key.") from None
+            status = (error.stdout or "").rstrip().rsplit("\n", 1)[-1]
+            if not re.fullmatch(r"[45]\d{2}", status):
+                raise BarkError("Bark returned an HTTP error. Check server access and proxy settings, then verify your device registration in Bark.") from None
+            advice = ("Check server access and proxy settings." if status in ("401", "403", "407") else
+                      "Wait before retrying; the server is rate limiting requests." if status == "429" else
+                      "The Bark server is unavailable; retry later." if status.startswith("5") else
+                      "Check the server origin and device registration in Bark, then rerun setup.")
+            raise BarkError("Bark returned HTTP " + status + ". " + advice) from None
         raise BarkError("Cannot reach Bark. Check connectivity and proxy settings.") from None
     except (OSError, ValueError, AttributeError) as error:
         if isinstance(error, BarkError):

@@ -1,3 +1,3 @@
 """BarkNotify-Plugin: a dependency-free local Codex notification plugin."""
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"

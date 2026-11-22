@@ -36,7 +36,15 @@ codex plugin add barknotify@barknotify-plugin
 
 > 请用 barknotify 配置 Bark 通知，接入会话 hooks，引导我在本机终端输入 Bark URL，通知使用中文。
 
-setup 会要求你在**本机终端隐藏输入**刚复制的地址。`https://api.day.app/DEVICE_KEY` 和带示例标题、正文的旧版测试 URL 都能识别，只保存服务器和 key。不要把地址发到聊天中，也不要向 setup 粘贴整段 curl 命令。全局 CLI 是可选项，[手动配置方法](docs/usage.md#manual-setup-from-a-checkout)见命令参考。
+setup 会要求你在**运行 Codex 的主机另开终端，隐藏输入**刚复制的地址。使用 SSH 或容器时，应在同一个环境、同一用户和 `CODEX_HOME` 下操作。`https://api.day.app/DEVICE_KEY` 和带示例标题、正文的旧版测试 URL 都能识别，只保存服务器和 key。不要把地址发到聊天中，也不要向 setup 粘贴整段 curl 命令。无需 checkout 或全局 CLI，见 [直接使用已安装插件配置](docs/usage.md#manual-setup-from-the-installed-plugin)。
+
+配置 skill 完成 `integrate` 后，可以直接运行：
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py" setup
+```
+
+默认英文通知；需要中文时添加 `--language zh`。
 
 ### 4. 验证通知
 
@@ -46,14 +54,15 @@ setup 会要求你在**本机终端隐藏输入**刚复制的地址。`https://a
 
 ## 日常使用
 
-从 checkout 运行：
+marketplace 接入完成后，可从任意目录运行：
 
 ```bash
-python3 barknotify_plugin/scripts/barknotify.py status
-python3 barknotify_plugin/scripts/barknotify.py test
-python3 barknotify_plugin/scripts/barknotify.py setup --language en --no-test
-python3 barknotify_plugin/scripts/barknotify.py disable
-python3 barknotify_plugin/scripts/barknotify.py enable
+barknotify_script="${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py"
+python3 "$barknotify_script" status
+python3 "$barknotify_script" test
+python3 "$barknotify_script" setup --language en --no-test
+python3 "$barknotify_script" disable
+python3 "$barknotify_script" enable
 ```
 
 也可以让 Codex 检查状态、切换语言、暂停通知或发测试推送。skill 使用已安装的脚本，不要求终端停留在 checkout。全局 `barknotify-plugin` 命令见 [可选 CLI 安装](docs/usage.md#optional-cli)。
@@ -78,7 +87,7 @@ codex plugin add barknotify@barknotify-plugin
 完整卸载插件及兼容 handlers：
 
 ```bash
-python3 barknotify_plugin/scripts/barknotify.py uninstall
+python3 "${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py" uninstall
 ```
 
 如果依赖缓存内脚本清理，请先执行该命令，再移除原生插件。若已通过 `/plugins` 移除，仍可从 checkout 或全局 CLI 运行 `uninstall`。卸载保留私有设置及 marketplace，便于重装；重复清理是安全的。
@@ -88,11 +97,14 @@ python3 barknotify_plugin/scripts/barknotify.py uninstall
 | 现象 | 下一步 |
 | --- | --- |
 | 找不到 key | 在本机终端运行 `setup`，输入 Bark 显示的 URL |
+| 首次 `doctor` 提示缺少 key、通知禁用或 hooks 未信任 | 完成 `setup`、确认手机测试通知，再到新会话的 `/hooks` 审阅 |
 | App 没有设备地址，或复制菜单不可用 | 开启通知后回到 Bark，保持联网，等待注册完成 |
 | 测试成功，手机没有通知 | 检查 Bark 通知权限、iPhone 专注模式及 key 对应的设备 |
+| 代理 CONNECT 返回 HTTP 403 | 保留 key，修复主机到 Bark 服务器的代理访问，见 [网络排查](docs/usage.md#network-and-proxy-troubleshooting) |
+| setup 返回 HTTP 429 或 5xx | 429 等待后再试；5xx 检查 Bark 服务器是否正常 |
 | 手动测试正常，自动通知不工作 | 运行 `doctor`，在 `/plugins` 启用，在 `/hooks` 审阅，再启动新会话 |
 | 更新后缺少 hooks | 用已安装脚本或 CLI 重新运行 `integrate` |
-| 没有插件 setup 入口 | 使用上面的提示词或 checkout 命令 |
+| 没有插件 setup 入口 | 使用上面的提示词或 [已安装插件命令](docs/usage.md#manual-setup-from-the-installed-plugin) |
 | 缺少 `python3` 或 `curl` | 在运行 Codex 的主机上安装依赖 |
 
 `doctor` 不发推送、不启动模型回合，也无法验证手机是否显示通知。项目级插件策略的限制见 [兼容说明](docs/compatibility.md)。

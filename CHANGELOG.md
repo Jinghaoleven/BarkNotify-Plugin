@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 — Beta
+
+- Document setup directly from the installed plugin, stable script paths, and the correct terminal for remote Codex hosts.
+- Distinguish proxy CONNECT failures from Bark HTTP errors; report status codes and recovery guidance without exposing credentials or response bodies.
+- Clarify that missing credentials, disabled delivery, and untrusted hooks are expected before first-time setup is finished.
+
 ## 0.4.1 — Beta
 
 - Describe the final open-source installation flow without development-only access requirements.

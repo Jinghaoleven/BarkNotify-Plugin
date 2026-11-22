@@ -234,6 +234,30 @@ class BarkTests(unittest.TestCase):
         self.assertFalse(config["enabled"])
         self.assertEqual((self.root / "config" / "device-key").read_text().strip(), "replacement-key")
 
+    def test_http_errors_report_status_and_guidance_without_response_or_key(self):
+        for status, guidance in ((400, "device registration"), (403, "proxy settings"),
+                                 (429, "rate limiting"), (503, "retry later")):
+            with self.subTest(status=status):
+                self.http_status = status
+                result = self.run_command("setup", "--key-stdin", input="replacement-key", expected=1)
+                self.assertIn("HTTP " + str(status), result.stderr)
+                self.assertIn(guidance, result.stderr)
+                for secret in ("replacement-key", "sensitive server error"):
+                    self.assertNotIn(secret, result.stdout + result.stderr)
+                self.assertFalse(json.loads((self.root / "config" / "config.json").read_text())["enabled"])
+
+    def test_proxy_connect_failure_is_distinct_from_device_registration(self):
+        error = subprocess.CalledProcessError(56, ["curl"], output="\n000",
+                    stderr="curl: (56) Received HTTP code 403 from proxy after CONNECT; sensitive-proxy-credential")
+        with patch.dict(os.environ, self.env), patch.object(bark.subprocess, "run", side_effect=error):
+            with self.assertRaises(bark.BarkError) as caught:
+                bark.send(bark.load_config(), "Title", "Body")
+        message = str(caught.exception)
+        self.assertIn("CONNECT HTTP 403", message)
+        self.assertIn("HTTPS_PROXY/ALL_PROXY", message)
+        for secret in ("test-key", "sensitive-proxy-credential", "device key"):
+            self.assertNotIn(secret, message)
+
     def test_language_option_changes_notification_without_requiring_a_key(self):
         self.run_command("setup", "--language", "zh", "--no-test")
         self.hook()

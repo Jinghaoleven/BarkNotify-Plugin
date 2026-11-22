@@ -1,6 +1,29 @@
 # CLI and configuration
 
-Every command is available through the installed bundle's `scripts/barknotify.py`. From a checkout use `python3 barknotify_plugin/scripts/barknotify.py`; examples below use the optional global `barknotify-plugin` command for brevity.
+Every command is available through the installed bundle's `scripts/barknotify.py`. No checkout or global CLI is needed for a marketplace installation; use the steps below. Later examples use the optional global `barknotify-plugin` command for brevity.
+
+## Manual setup from the installed plugin
+
+Follow the [iPhone preparation steps](../README.md#quick-start), and register the marketplace as described there. In a terminal on the **host running Codex**, install or refresh the plugin and discover its script from Codex's JSON response:
+
+```bash
+barknotify_script="$(codex plugin add barknotify@barknotify-plugin --json |
+  python3 -c 'import json, sys; print(json.load(sys.stdin)["installedPath"] + "/scripts/barknotify.py")')"
+python3 "$barknotify_script" integrate
+barknotify_script="${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py"
+python3 "$barknotify_script" setup
+python3 "$barknotify_script" doctor
+```
+
+Integration creates the stable per-home script used by the last three commands. Avoid hardcoding a versioned cache path: plugin refreshes can replace it. Once integrated, you can run this from any working directory:
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py" setup
+```
+
+For SSH, containers, or remote workspaces, open a separate terminal in that same environment, with the same user and `CODEX_HOME`. Configuring your laptop's Codex does not configure a remote host. Copy **Address and Key** from Bark on your iPhone, transfer it privately to that terminal, and paste it only at setup's hidden input prompt. Never paste it into an agent tool transcript or chat. Add `--language zh` for Chinese notifications.
+
+Confirm **BarkNotify-Plugin · Test** appears on the phone. Then start a new Codex session using the same home and review Bark in `/hooks`. Integration registers six lifecycle handlers; only turn completion and approval requests send notifications by default. `doctor` reports a missing key and disabled delivery before setup, and untrusted hooks until your review; these are pending setup steps. Do not enable delivery alone to resolve a missing key. A successful `doctor` does not verify phone display.
 
 ## Optional CLI
 
@@ -41,6 +64,21 @@ python3 barknotify_plugin/scripts/barknotify.py doctor
 ```
 
 Use `setup --integrate --language zh` for Chinese notifications. Copy **Address and Key** from the Bark App's Copy menu and enter it in the local terminal. Older example push URLs are accepted too; example titles, bodies, and query parameters are discarded. A curl command or JSON example is not a push URL.
+
+## Network and proxy troubleshooting
+
+Check connectivity from the same terminal that runs setup. This check uses no device key and sends no notification:
+
+```bash
+curl -q -sS -o /dev/null -w 'HTTP %{http_code}\n' \
+  --connect-timeout 3 --max-time 8 https://api.day.app/ping
+```
+
+A reachable default Bark server returns HTTP 200. `Received HTTP code 403 from proxy after CONNECT`, or `Proxy refused the Bark connection (CONNECT HTTP 403)`, means the proxy refused the connection before it reached Bark. Keep the saved key; configure a proxy that can reach `api.day.app:443`, or arrange access through your host's network. Unsetting proxy variables helps only when direct access works. For a self-hosted server, check that server's origin instead.
+
+The runtime uses curl's `HTTPS_PROXY`, `ALL_PROXY`, and `NO_PROXY` environment settings. Make the working network configuration available to both setup and the Codex process that runs hooks; setting it only for a one-off test is insufficient for automatic notifications. Keep proxy passwords out of chat, command arguments, and tracked files.
+
+Once connectivity works, rerun `setup` and press Enter at its hidden prompt to keep the saved key. Confirm the phone test before restarting Codex and reviewing `/hooks`. HTTP 400/404 may require checking the server origin and the device address in Bark; HTTP 429 means wait before retrying, and HTTP 5xx indicates a server failure. Error output reports only status and recovery guidance, never server response bodies.
 
 ## Preferences
 

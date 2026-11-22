@@ -36,7 +36,15 @@ Start a new Codex session, open the plugin's setup entry in `/plugins` if availa
 
 > Use barknotify to set up Bark notifications. Connect the session hooks and guide me through entering my Bark URL in a local terminal. Use English notifications.
 
-Setup asks for the copied URL **in your local terminal, with input hidden**. Both `https://api.day.app/DEVICE_KEY` and older example URLs with a title/body are accepted; only the server and key are saved. Do not paste the URL into chat or paste a curl command into setup. A global CLI is optional; see [manual setup](docs/usage.md#manual-setup-from-a-checkout).
+Setup asks for the copied URL **in a separate terminal on the host running Codex, with input hidden**. For SSH or a container, use a terminal in that same environment, with the same user and `CODEX_HOME`. Both `https://api.day.app/DEVICE_KEY` and older example URLs with a title/body are accepted; only the server and key are saved. Do not paste the URL into chat or paste a curl command into setup. No checkout or global CLI is needed; see [manual setup from the installed plugin](docs/usage.md#manual-setup-from-the-installed-plugin).
+
+Once the setup skill has run `integrate`, enter your URL using:
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py" setup
+```
+
+Add `--language zh` for Chinese notifications.
 
 ### 4. Verify delivery
 
@@ -46,14 +54,15 @@ After this one-time phone setup, notifications arrive through iOS; Bark does not
 
 ## Everyday use
 
-From a checkout:
+After marketplace integration, from any working directory:
 
 ```bash
-python3 barknotify_plugin/scripts/barknotify.py status
-python3 barknotify_plugin/scripts/barknotify.py test
-python3 barknotify_plugin/scripts/barknotify.py setup --language zh --no-test
-python3 barknotify_plugin/scripts/barknotify.py disable
-python3 barknotify_plugin/scripts/barknotify.py enable
+barknotify_script="${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py"
+python3 "$barknotify_script" status
+python3 "$barknotify_script" test
+python3 "$barknotify_script" setup --language zh --no-test
+python3 "$barknotify_script" disable
+python3 "$barknotify_script" enable
 ```
 
 Or ask Codex to check Bark status, change the language, pause notifications, or send a test. The skill uses the installed bundle, so you do not need to stay in the checkout. For a global `barknotify-plugin` command, see [optional CLI installation](docs/usage.md#optional-cli).
@@ -78,7 +87,7 @@ An optional global CLI is updated separately; [usage](docs/usage.md#updates) cov
 To remove the plugin and compatibility handlers:
 
 ```bash
-python3 barknotify_plugin/scripts/barknotify.py uninstall
+python3 "${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py" uninstall
 ```
 
 Run this before native `/plugins` removal if you rely on the cached bundle for cleanup. If already removed, the checkout or optional CLI can still run `uninstall`. Private settings and the marketplace remain available for reinstallation; repeated cleanup is safe.
@@ -88,11 +97,14 @@ Run this before native `/plugins` removal if you rely on the cached bundle for c
 | Symptom | Next step |
 | --- | --- |
 | Key is missing | Run `setup` in a local terminal and enter the URL shown in Bark |
+| First `doctor` reports a missing key, disabled delivery, or untrusted hooks | Finish `setup`, confirm the phone test, then review `/hooks` in a new session |
 | The App has no device URL or its Copy menu is disabled | Allow notifications, return to Bark, and wait for registration on an active network |
 | Test succeeds but the phone is silent | Check Bark notification permission, iPhone Focus settings, and the key's target device |
+| Proxy CONNECT fails with HTTP 403 | Keep the key; fix the host's proxy access to the Bark server. See [network troubleshooting](docs/usage.md#network-and-proxy-troubleshooting) |
+| Setup returns HTTP 429 or 5xx | Wait before retrying for 429; check Bark server availability for 5xx |
 | Manual test works but automatic notifications do not | Run `doctor`, enable Bark in `/plugins`, review `/hooks`, and start a new session |
 | Hooks are missing after an update | Run `integrate` again using the installed bundle or optional CLI |
-| Plugin setup entry is unavailable | Use the setup prompt above or the checkout commands |
+| Plugin setup entry is unavailable | Use the setup prompt above or [installed-plugin commands](docs/usage.md#manual-setup-from-the-installed-plugin) |
 | `python3` or `curl` is unavailable | Install the dependency on the host running Codex |
 
 `doctor` checks configuration, integration, and hook trust without sending a push or starting a model turn. It cannot determine whether your phone displayed a notification. Project-specific plugin policy limits are documented in [compatibility](docs/compatibility.md).
