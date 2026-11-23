@@ -5,7 +5,7 @@
 [English](README.md) · [命令说明](docs/usage.md) · [网络扩展](extensions/reverse-socks/README.zh-CN.md)
 
 <p align="center">
-  <img src="docs/assets/notification-preview.zh-CN.png" alt="iPhone 和配对 Apple Watch 上的 Bark 通知" width="720">
+  <img src="docs/assets/notification-preview.zh-CN.png" alt="iOS 和 watchOS 上的 Bark 通知" width="720">
 </p>
 
 ## 开始使用

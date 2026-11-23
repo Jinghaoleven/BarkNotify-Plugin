@@ -5,7 +5,7 @@ Receive remote Codex CLI session alerts on your iPhone through [Bark](https://gi
 [简体中文](README.zh-CN.md) · [Commands](docs/usage.md) · [Network extension](extensions/reverse-socks/README.md)
 
 <p align="center">
-  <img src="docs/assets/notification-preview.png" alt="Bark notifications on iPhone and a paired Apple Watch" width="720">
+  <img src="docs/assets/notification-preview.png" alt="Bark notifications on iOS and watchOS" width="720">
 </p>
 
 ## Get started

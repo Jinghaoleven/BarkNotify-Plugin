@@ -104,8 +104,8 @@ def render(language):
         image.paste(panel, box((x0, y0)), mask)
         draw = ImageDraw.Draw(image)
 
-    centered_label(408, 24, 'iPhone')
-    centered_label(1034, 24, 'Apple Watch')
+    centered_label(408, 24, 'iOS')
+    centered_label(1034, 24, 'watchOS')
 
     # Compact side-by-side surfaces replace the oversized marketing hero.
     surface((26, 76, 790, 535), (44, 75, 89), (22, 43, 52), 32)
