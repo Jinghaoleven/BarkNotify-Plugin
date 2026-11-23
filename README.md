@@ -4,7 +4,9 @@ Receive remote Codex CLI session alerts on your iPhone through [Bark](https://gi
 
 [简体中文](README.zh-CN.md) · [Commands](docs/usage.md) · [Network extension](extensions/reverse-socks/README.md)
 
-![Example notifications](docs/assets/notification-preview.png)
+![Bark on iPhone showing a Codex approval request and turn-end notification for an example project](docs/assets/notification-preview.png)
+
+*Redrawn from Bark on iOS with fictional session and project names. Appearance varies with iOS settings.*
 
 ## Get started
 

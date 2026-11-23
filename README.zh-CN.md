@@ -4,7 +4,9 @@
 
 [English](README.md) · [命令说明](docs/usage.md) · [网络扩展](extensions/reverse-socks/README.zh-CN.md)
 
-![通知示意图](docs/assets/notification-preview.png)
+![iPhone 上的 Bark 显示示例项目的 Codex 审批请求和本轮结束通知](docs/assets/notification-preview.zh-CN.png)
+
+*按真实 Bark 显示重绘，会话和项目名称均为虚构示例。实际外观随 iOS 设置变化。*
 
 ## 开始使用
 

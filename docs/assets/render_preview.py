@@ -1,77 +1,194 @@
-"""Render a credential-free illustration of the plugin's notification payloads."""
+"""Render public examples using invented text, without reading device screenshots.
 
+Requires Pillow and a system Latin font; Chinese rendering also needs PingFang,
+Heiti, or Noto Sans CJK. Run this file to regenerate both README illustrations.
+"""
+
+from functools import lru_cache
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 HERE = Path(__file__).resolve().parent
+SIZE = (1600, 960)
 SCALE = 2
-SIZE = (1440, 660)
-FONT_DIR = Path('/usr/share/fonts/truetype/dejavu')
 
 
-def font(size, bold=False):
-    return ImageFont.truetype(str(FONT_DIR / ('DejaVuSans-Bold.ttf' if bold else 'DejaVuSans.ttf')), size * SCALE)
+@lru_cache(maxsize=None)
+def font(size, bold=False, chinese=False):
+    if chinese:
+        candidates = list(Path('/System/Library/AssetsV2').glob(
+            'com_apple_MobileAsset_Font*/**/PingFang.ttc'))
+        candidates += [
+            Path('/System/Library/Fonts/PingFang.ttc'),
+            Path('/System/Library/Fonts/STHeiti Medium.ttc' if bold else
+                 '/System/Library/Fonts/STHeiti Light.ttc'),
+            Path('/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc' if bold else
+                 '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'),
+        ]
+    else:
+        candidates = [
+            Path('/System/Library/Fonts/SFNS.ttf'),
+            Path('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf' if bold else
+                 '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'),
+        ]
+    path = next((p for p in candidates if p.is_file()), None)
+    if path is None:
+        raise RuntimeError('Install Noto Sans CJK and DejaVu Sans to render the previews.')
+    index = 0
+    if path.name == 'PingFang.ttc':
+        index = 11 if bold else 3
+    elif path.name.startswith('NotoSansCJK-'):
+        index = 2
+    result = ImageFont.truetype(str(path), size * SCALE, index=index)
+    try:
+        result.set_variation_by_name('Bold' if bold else 'Regular')
+    except (AttributeError, OSError, ValueError):
+        pass
+    return result
 
 
 def box(coords):
-    return tuple(round(value * SCALE) for value in coords)
+    return tuple(round(v * SCALE) for v in coords)
 
 
-def label(draw, xy, value, size, color, bold=False):
-    draw.text((xy[0] * SCALE, xy[1] * SCALE), value, font=font(size, bold), fill=color)
+def text(draw, xy, value, size, color, bold=False, chinese=False):
+    draw.text(box(xy), value, font=font(size, bold, chinese), fill=color, anchor='lt')
 
 
-image = Image.new('RGB', tuple(v * SCALE for v in SIZE), '#f4f5f7')
-draw = ImageDraw.Draw(image)
-
-# Soft background and a stylized iOS notification surface.
-for y in range(SIZE[1] * SCALE):
-    ratio = y / (SIZE[1] * SCALE)
-    draw.line((0, y, SIZE[0] * SCALE, y), fill=(round(246 - ratio * 6), round(248 - ratio * 7), round(250 - ratio * 6)))
-
-draw.rounded_rectangle(box((66, 72, 276, 112)), radius=20 * SCALE, fill='#e1e8ee')
-label(draw, (85, 81), 'CODEX CLI  /  SSH', 17, '#3d5262', True)
-label(draw, (66, 154), 'Remote sessions.', 47, '#162632', True)
-label(draw, (66, 216), 'Timely updates.', 47, '#162632', True)
-label(draw, (69, 310), 'Bark notifications on iOS', 23, '#4d606d')
-label(draw, (69, 347), 'for remote Codex CLI sessions.', 23, '#4d606d')
-
-# Small terminal cue, without any user content or infrastructure identifiers.
-draw.rounded_rectangle(box((69, 431, 565, 557)), radius=18 * SCALE, fill='#e8edf1')
-label(draw, (93, 452), '> codex', 20, '#264f63', True)
-label(draw, (93, 491), 'Stay informed away from the terminal.', 18, '#52646f')
-
-shadow = Image.new('RGBA', image.size)
-sd = ImageDraw.Draw(shadow)
-sd.rounded_rectangle(box((654, 46, 1376, 614)), radius=34 * SCALE, fill=(12, 30, 49, 45))
-shadow = shadow.filter(ImageFilter.GaussianBlur(18 * SCALE))
-image = Image.alpha_composite(image.convert('RGBA'), shadow)
-draw = ImageDraw.Draw(image)
-draw.rounded_rectangle(box((642, 38, 1368, 602)), radius=32 * SCALE, fill='#1e3548')
-label(draw, (678, 65), 'iOS notification preview', 18, '#bdceda')
-label(draw, (1195, 64), '9:41', 20, '#eaf2f8', True)
+def fit_title(value, width, size, chinese):
+    face = font(size, True, chinese)
+    if face.getlength(value) <= width * SCALE:
+        return value
+    while face.getlength(value + '…') > width * SCALE:
+        value = value[:-1]
+    return value.rstrip() + '…'
 
 
-def card(y, title, lines):
-    height = 184 if len(lines) == 2 else 202
-    draw.rounded_rectangle(box((674, y, 1336, y + height)), radius=22 * SCALE, fill='#f2f5f7')
-    draw.rounded_rectangle(box((694, y + 17, 727, y + 50)), radius=9 * SCALE, fill='#49677a')
-    # A neutral bell indicates the notification app; this is an illustration.
-    draw.arc(box((703, y + 23, 718, y + 39)), 180, 360, fill='white', width=2 * SCALE)
-    draw.line(box((703, y + 31, 703, y + 41)), fill='white', width=2 * SCALE)
-    draw.line(box((718, y + 31, 718, y + 41)), fill='white', width=2 * SCALE)
-    draw.line(box((700, y + 41, 721, y + 41)), fill='white', width=2 * SCALE)
-    draw.ellipse(box((708, y + 44, 713, y + 47)), fill='white')
-    label(draw, (741, y + 23), 'BARK', 15, '#5b6b76', True)
-    label(draw, (1277, y + 23), 'now', 15, '#7b8790')
-    label(draw, (694, y + 63), title, 24, '#172b39', True)
-    for index, line in enumerate(lines):
-        label(draw, (694, y + 105 + index * 27), line, 18, '#455762')
+def bark_icon(draw, x, y, size):
+    """Draw Bark's recognizable red notification icon as simple shapes."""
+    draw.rounded_rectangle(box((x, y, x + size, y + size)), radius=22 * SCALE,
+                           fill='#ff3b30', outline='#ff685c', width=SCALE)
+    def shape(points):
+        draw.polygon([box((x + a * size, y + b * size)) for a, b in points], fill='white')
+    shape(((.10, .41), (.17, .38), (.17, .63)))
+    shape(((.20, .34), (.36, .39), (.36, .61), (.20, .66)))
+    shape(((.40, .43), (.64, .43), (.64, .57), (.40, .57)))
+    shape(((.68, .39), (.84, .34), (.84, .66), (.68, .61)))
+    shape(((.87, .38), (.94, .41), (.87, .63)))
 
 
-card(123, 'training · Turn ended', ['Status: Turn ended', 'Project: training'])
-card(335, 'training · Approval requested', ['Status: Approval requested', 'Project: training', 'Tool: exec_command'])
-label(draw, (678, 568), 'Illustration · Actual presentation depends on iOS settings.', 15, '#c1d0db')
-image.convert('RGB').resize(SIZE, Image.Resampling.LANCZOS).save(HERE / 'notification-preview.png', optimize=True)
+def render(language):
+    chinese = language == 'zh'
+    image = Image.new('RGB', box(SIZE))
+    draw = ImageDraw.Draw(image)
+    for y in range(image.height):
+        ratio = y / image.height
+        draw.line((0, y, image.width, y), fill=(round(246 - 7 * ratio),
+                                               round(249 - 7 * ratio),
+                                               round(250 - 6 * ratio)))
+
+    # Product copy is outside the simulated iOS surface.
+    draw.rounded_rectangle(box((80, 98, 350, 143)), radius=22 * SCALE, fill='#e2eceb')
+    text(draw, (101, 112), 'BARKNOTIFY  /  CODEX', 18, '#315c5b', True)
+    heading = ('会话动态，', '手机可见。') if chinese else ('Your Codex session.', 'On your iPhone.')
+    for index, line in enumerate(heading):
+        text(draw, (80, 215 + 80 * index), line, 56 if chinese else 51,
+             '#172d34', True, chinese)
+    description = ('本轮结束或需要审批时，', '通过 Bark 在 iPhone 上接收通知。') if chinese else (
+        'Turn ends. Approval requests.', 'Delivered through Bark.')
+    for index, line in enumerate(description):
+        text(draw, (84, 426 + index * 38), line, 24, '#52676e', chinese=chinese)
+
+    draw.rounded_rectangle(box((84, 579, 578, 726)), radius=24 * SCALE, fill='#e6edee')
+    text(draw, (110, 606), '> codex', 25, '#2e595d', True)
+    text(draw, (110, 658), '离开终端，也能及时回来。' if chinese else
+         'Step away. Stay in the loop.', 23, '#52676e', chinese=chinese)
+    text(draw, (84, 820), '中文 / English' if chinese else 'English / 中文',
+         22, '#52676e', chinese=True)
+
+    # Abstract wallpaper is generated here. No pixels from a private screenshot
+    # or wallpaper, status-bar identity, or notification history are retained.
+    panel_size = (840 * SCALE, 864 * SCALE)
+    panel = Image.new('RGB', panel_size)
+    pd = ImageDraw.Draw(panel)
+    for y in range(panel.height):
+        t = y / panel.height
+        pd.line((0, y, panel.width, y), fill=(round(36 - 20 * t),
+                                            round(66 - 35 * t),
+                                            round(79 - 40 * t)))
+    glow = Image.new('RGBA', panel_size)
+    gd = ImageDraw.Draw(glow)
+    gd.ellipse(box((-240, 240, 560, 1160)), fill=(103, 150, 142, 95))
+    gd.ellipse(box((400, -80, 1050, 610)), fill=(140, 182, 204, 60))
+    glow = glow.filter(ImageFilter.GaussianBlur(95 * SCALE))
+    panel = Image.alpha_composite(panel.convert('RGBA'), glow)
+    mask = Image.new('L', panel_size)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, *panel_size), radius=48 * SCALE, fill=255)
+    shadow = Image.new('RGBA', image.size)
+    ImageDraw.Draw(shadow).rounded_rectangle(box((704, 62, 1544, 926)),
+                                            radius=48 * SCALE, fill=(16, 39, 48, 52))
+    image = Image.alpha_composite(image.convert('RGBA'),
+                                 shadow.filter(ImageFilter.GaussianBlur(16 * SCALE)))
+    image.paste(panel, box((700, 48)), mask)
+    draw = ImageDraw.Draw(image)
+
+    text(draw, (745, 83), '9:41', 25, '#f4f7f8', True)
+    for i, height in enumerate((8, 12, 17, 22)):
+        draw.rounded_rectangle(box((1390 + i * 8, 110 - height, 1395 + i * 8, 110)),
+                               radius=2 * SCALE, fill='#f4f7f8')
+    draw.rounded_rectangle(box((1450, 88, 1493, 110)), radius=6 * SCALE,
+                           outline='#d6e0e4', width=2 * SCALE)
+    draw.rounded_rectangle(box((1454, 92, 1484, 106)), radius=3 * SCALE, fill='#f4f7f8')
+    draw.rectangle(box((1495, 95, 1498, 103)), fill='#d6e0e4')
+    text(draw, (745, 159), 'Bark', 41, '#f5f7f8')
+    draw.rounded_rectangle(box((1351, 148, 1456, 205)), radius=28 * SCALE,
+                           fill='#496472', outline='#73919e', width=SCALE)
+    text(draw, (1373, 168), '收起' if chinese else 'Less', 22, '#f3f7f8', chinese=chinese)
+    draw.ellipse(box((1470, 148, 1527, 205)), fill='#496472', outline='#73919e', width=SCALE)
+    for coords in ((1488, 166, 1508, 186), (1508, 166, 1488, 186)):
+        draw.line(box(coords), fill='#f3f7f8', width=3 * SCALE)
+
+    def card(y, title, lines, timestamp):
+        nonlocal draw, image
+        height = 112 + 40 * len(lines)
+        layer = Image.new('RGBA', image.size)
+        ld = ImageDraw.Draw(layer)
+        ld.rounded_rectangle(box((724, y, 1516, y + height)), radius=39 * SCALE,
+                             fill=(206, 224, 231, 61), outline=(204, 230, 239, 110), width=SCALE)
+        image = Image.alpha_composite(image, layer)
+        draw = ImageDraw.Draw(image)
+        bark_icon(draw, 750, y + (height - 80) / 2, 80)
+        text(draw, (854, y + 28), fit_title(title, 496, 32, chinese),
+             32, '#f4f7f8', True, chinese)
+        time_font = font(22, chinese=chinese)
+        time_width = time_font.getlength(timestamp) / SCALE
+        text(draw, (1482 - time_width, y + 33), timestamp, 22, '#bacdd6', chinese=chinese)
+        for index, line in enumerate(lines):
+            text(draw, (854, y + 73 + index * 40), line, 29, '#e5eef2', chinese=chinese)
+        return y + height
+
+    if chinese:
+        bottom = card(237, '演示会话 · 审批请求',
+                      ['状态：审批请求', '项目：demo-app', '模型：gpt-6.1-sol', '工具：Bash'], '现在')
+        card(bottom + 20, '演示会话 · 本轮结束',
+             ['状态：本轮结束', '项目：demo-app', '模型：gpt-6.1-sol'], '2 分钟前')
+    else:
+        bottom = card(237, 'demo-session · Approval requested',
+                      ['Status: Approval requested', 'Project: demo-app',
+                       'Model: gpt-6.1-sol', 'Tool: Bash'], 'now')
+        card(bottom + 20, 'demo-session · Turn ended',
+             ['Status: Turn ended', 'Project: demo-app', 'Model: gpt-6.1-sol'], '2m ago')
+    draw.rounded_rectangle(box((1005, 875, 1235, 883)), radius=4 * SCALE, fill='#edf4f5')
+    caption = '按真实 Bark 显示重绘 · 示例信息' if chinese else 'Redrawn from Bark on iOS · Example content'
+    text(draw, (744, 824), caption, 19, '#bbced5', chinese=chinese)
+    filename = 'notification-preview.zh-CN.png' if chinese else 'notification-preview.png'
+    path = HERE / filename
+    image.convert('RGB').resize(SIZE, Image.Resampling.LANCZOS).save(path, optimize=True)
+    print(path)
+
+
+if __name__ == '__main__':
+    for language in ('en', 'zh'):
+        render(language)
