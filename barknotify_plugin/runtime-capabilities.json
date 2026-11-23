@@ -1,0 +1,4 @@
+{
+  "config_schema": 2,
+  "capabilities": ["bark-proxy", "network-check", "transactional-setup", "preferences"]
+}

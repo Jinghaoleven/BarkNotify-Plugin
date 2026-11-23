@@ -1,30 +1,19 @@
 # Build and release
 
-BarkNotify-Plugin is currently a beta package. The repository is the distribution source; no PyPI package, public marketplace listing, or hosted installer is assumed.
+The repository is the current distribution source. No PyPI publication or tagged release is assumed.
 
-Before a release:
+1. Run the tests in [development](development.md), including required native and real SSH integration.
+2. Build from a clean checkout, without stale build/dist/egg-info directories:
+   ```bash
+   uv build
+   uv build extensions/reverse-socks --out-dir dist/tunnel
+   ```
+3. Install both wheels in a fresh venv and run `tests/artifact_smoke.py` from outside the source tree's import path. Inspect wheel/sdist contents for complete bundles, version agreement, credentials and bytecode. The main sdist includes the extension source; the wheels remain separate.
+4. Verify marketplace add → integrate → upgrade in disposable homes, source retention, saved settings, unrelated hooks, and trust review.
+5. For live acceptance, check the route without a push, then send one labeled test to an authorized device and confirm phone display.
 
-```bash
-python3 -m unittest discover -s tests -v
-python3 tests/native_install.py
-uv build
-```
+Main version fields: root pyproject.toml, barknotify_plugin/__init__.py and plugin.json. Extension fields: its pyproject.toml and __init__.py. Update changelogs and compatibility observations together. Record actual OS, Python, Codex and OpenSSH versions; unit tests alone do not prove runtime compatibility.
 
-The Python version in `pyproject.toml`, `barknotify_plugin/__init__.py`, and `barknotify_plugin/plugin.json` must match. The wheel contains the CLI and complete self-contained plugin bundle. The source distribution also includes the repository marketplace and tests. Keep credentials, local config, virtual environments, and bytecode out of both artifacts.
+Attach both wheel/sdist pairs and SHA256 checksums to a release only when authorized. Git synchronization does not publish a release. Public user instructions must not assume unpublished PyPI packages or nonexistent tags.
 
-Install the built wheel in a fresh virtual environment and verify `barknotify-plugin --version`, `barknotify-plugin install --dry-run`, and `barknotify-plugin events`. Test a real Codex install in disposable homes on every claimed platform/version; a skipped native test is not a compatibility pass. Test delivery using a local mock server, then optionally use a dedicated Bark device for end-to-end testing.
-
-The distribution repository is `https://github.com/Jinghaoleven/BarkNotify-Plugin.git`. Repository synchronization does not create a tagged release or publish a PyPI package. For Git distribution, use the included `.agents/plugins/marketplace.json`; its bundle requires no separately installed CLI.
-
-The documented native installation is:
-
-```bash
-codex plugin marketplace add https://github.com/Jinghaoleven/BarkNotify-Plugin.git
-codex plugin add barknotify@barknotify-plugin
-```
-
-End-user instructions use the normal GitHub marketplace installation, without an account or repository-access prerequisite. The setup skill runs `integrate` and guides local credential entry with `setup`. Keep temporary development access controls out of the product instructions. Default installation follows the repository's default branch. The tested CLI also supports `marketplace add <repository-url> --ref <release-tag>`; document a tag only after it exists. A pinned source does not follow new releases automatically.
-
-Before a release, test marketplace upgrade → plugin add → integrate in a disposable home, confirming source retention, settings preservation, and hook trust review. Update optional CLI instructions separately. A Git marketplace fetch failure is distinct from a Bark delivery failure; troubleshoot repository access before requesting Bark credentials.
-
-Attach the tested wheel, source archive, and SHA256 checksums to a tagged release. Keep version fields synchronized and record compatibility changes in the changelog. Do not advertise the current hooks bundle for the public OpenAI plugin directory: [official packaging rules](https://developers.openai.com/plugins/build/plugins) explicitly exclude plugins containing lifecycle hooks. Repository marketplaces/manual distribution are the intended route.
+For Git distribution use the repository's .agents/plugins/marketplace.json. The documented update follows the registered source; retain user source choice. For a pinned source, test the actual tag before documenting it. Plugins containing lifecycle hooks have public-directory restrictions described in the [packaging documentation](https://developers.openai.com/plugins/build/plugins); repository marketplaces remain the supported path.

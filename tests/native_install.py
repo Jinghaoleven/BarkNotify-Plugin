@@ -20,9 +20,10 @@ def main():
     binary = shutil.which("codex")
     if not binary:
         print("SKIP: Codex is not installed")
-        return 0
+        return 1 if os.environ.get("BARKNOTIFY_REQUIRE_NATIVE_TEST") == "1" else 0
     with tempfile.TemporaryDirectory(prefix="bark-native-") as temporary:
-        base = Path(temporary)
+        # macOS exposes /var through a symlink; CLI paths are canonicalized.
+        base = Path(temporary).resolve()
         private = base / "custom-private" / "bark"
         env = {**os.environ, "HOME": str(base), "XDG_CONFIG_HOME": str(base / "config"),
                "BARKNOTIFY_CONFIG_DIR": str(private), "PYTHONPATH": str(ROOT)}
@@ -65,6 +66,10 @@ def main():
             record = json.loads((home / "bark-install.json").read_text())
             cache = Path(record["plugin_root"])
             assert record["version"] == __version__ and cache.is_dir()
+            assert record["runtime_version"] == __version__
+            assert record["python_executable"] == str(Path(sys.executable).resolve())
+            assert record["runtime_digest"] == installer.runtime_metadata(cache)["runtime_digest"]
+            assert "bark-proxy" in record["capabilities"]
             assert (cache / "plugin.json").is_file() and (cache / "assets" / "lifecycle-hooks.json").is_file()
             assert not list(cache.rglob("device-key")), "credentials must stay outside the cache"
             assert json.loads((home / "hooks.json").read_text())["hooks"]["Stop"][0] == original_hooks["hooks"]["Stop"][0]
@@ -157,6 +162,8 @@ def main():
         run([sys.executable, str(script), "integrate"], selected_env)
         updated = json.loads((home / "bark-install.json").read_text())
         assert updated["version"] == "99.0.0"
+        assert updated["runtime_version"] == "99.0.0"
+        assert updated["runtime_digest"] == installer.runtime_metadata(stable_runtime)["runtime_digest"]
         assert Path(updated["plugin_root"]) != Path(record["plugin_root"])
         assert updated.get("command") == command_before, "compatibility command must survive cache version changes"
         status = json.loads(run([sys.executable, "-m", "barknotify_plugin", "status", "--json"], selected_env))

@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 from pathlib import Path
 import sys
 import tempfile
@@ -12,6 +13,14 @@ from barknotify_plugin import cli, installer, runtime
 
 
 class InstallTests(unittest.TestCase):
+    def test_old_bundle_does_not_claim_new_runtime_capabilities(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "plugin.json").write_text('{"version":"0.4.2"}')
+            record = installer.runtime_metadata(root)
+            self.assertEqual(record["capabilities"], [])
+            self.assertEqual(record["runtime_version"], "0.4.2")
+
     def test_merge_preserves_other_handlers_and_uninstall_removes_only_bark(self):
         with tempfile.TemporaryDirectory(prefix="bark-merge-") as temporary:
             home = Path(temporary)
@@ -99,6 +108,8 @@ class InstallTests(unittest.TestCase):
             (home / "bark-install.json").write_text(json.dumps({"mode": "compat", "command": command}))
             cache = home / "plugins" / "cache" / "barknotify-plugin" / "barknotify" / "local"
             cache.mkdir(parents=True)
+
+            shutil.copytree(installer.ROOT, cache, dirs_exist_ok=True)
 
             def native(binary, target, *args):
                 if args[0] == "add":

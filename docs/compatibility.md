@@ -8,7 +8,9 @@ The recommended path uses native marketplace registration and `codex plugin add`
 
 Both paths inspect `hooks/list` through a temporary local app-server without starting a model turn. If all six bundled events are exposed, they select `native` mode. Otherwise they select `compat` mode and merge only their own command handlers into the target home's `hooks.json`. `--mode native` requires successful discovery; `--mode compat` explicitly selects the bridge.
 
-Codex CLI 0.166.0 was tested on Linux. In the tested environment, the native plugin and skill loaded, while bundled hook metadata was absent; the compatibility registrations were visible and required normal hook trust. This is an observation about that runtime, not a claim that every 0.166.0 environment behaves identically. Other releases and macOS still need native integration validation; the transport and configuration code uses Python's standard library and curl.
+Acceptance on 2026-11-23 used Codex CLI 0.162.1 on macOS with Python 3.13 and Codex CLI 0.166.0 on Linux with Python 3.12. Both passed real installation, source retention, versioned upgrade, settings preservation, hook discovery/trust checks, and cleanup in disposable homes. In these environments the plugin and skill loaded, while integration selected the compatibility bridge. This records those tested environments, not every release or launcher.
+
+The standalone extension passed a disposable Linux OpenSSH test for reverse SOCKS, loopback verification, repeated start, connection-loss recovery, explicit stop and port conflict. Live macOS acceptance used Python 3.9.6 and launchd: a full SSH-to-Bark route recovered in about 5 seconds after killing the owned SSH process, explicit down stayed stopped across a 35-second timer observation, and resume passed Bark /ping. An earlier recovery's initial health probe failed before later probes passed; these tests do not establish long-term availability. Existing unrelated forwarding stayed active. Linux service templates and rollback have unit coverage, while user-systemd lifecycle still needs environment-specific acceptance. CI requires native and SSH tests rather than treating missing executables as successful skips.
 
 The selected mode, installed cache path, settings directory, and owned compatibility command are recorded in the target home's `bark-install.json`. The bridge checks the native user plugin's enabled state in `config.toml` and the presence of its installed cache before sending. Disabling or uninstalling Bark through `/plugins` therefore stops compatibility pushes. Use `barknotify-plugin uninstall` to remove the bridge registrations too.
 
@@ -16,7 +18,7 @@ Compatibility mode follows the **user-level** plugin switch. Project config and 
 
 If a Codex update begins loading bundled hooks while compatibility registrations exist, the native handler remains passive until integration re-detects the mode. This prevents two senders for one event. Run `integrate` for marketplace installations or `install` for tool-managed installations after upgrading Codex.
 
-Codex requires review and trust before non-managed hooks run. Installation never grants trust or uses a trust bypass. After installation or script upgrades, review Bark in `/hooks` in a new session. Existing sessions may retain their previous hook configuration until restarted or resumed.
+Codex requires review and trust before non-managed hooks run. Installation never grants trust or uses a trust bypass. After installation or script upgrades, review Bark in `/hooks`. Restart or resume if the current session has missing or stale hooks. Preference, proxy and pause changes apply to subsequent pushes without a restart.
 
 ## Lifecycle semantics
 

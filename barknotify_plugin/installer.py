@@ -3,6 +3,7 @@
 import copy
 from datetime import datetime, timezone
 import json
+import hashlib
 import os
 from pathlib import Path
 import shlex
@@ -21,6 +22,24 @@ ROOT = Path(__file__).resolve().parent
 SELECTOR = "barknotify@barknotify-plugin"
 LEGACY_SELECTORS = ("bark@codex-bark", "bark@codex-bark-local")
 CACHE_LOCATIONS = (("barknotify-plugin", "barknotify"), ("codex-bark", "bark"), ("codex-bark-local", "bark"))
+
+
+def runtime_metadata(root):
+    manifest = read_json(root / "plugin.json", {})
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("version"), str):
+        raise BarkError("The installed bundle lacks valid version metadata. Refresh the marketplace plugin.")
+    metadata = read_json(root / "runtime-capabilities.json", {})
+    capabilities = metadata.get("capabilities", []) if isinstance(metadata, dict) else []
+    if not isinstance(capabilities, list) or any(not isinstance(value, str) for value in capabilities):
+        raise BarkError("The installed bundle has invalid runtime capabilities.")
+    digest = hashlib.sha256()
+    for path in sorted(root.rglob("*")):
+        if path.is_file() and path.suffix in (".py", ".json", ".md") and "__pycache__" not in path.parts:
+            digest.update(str(path.relative_to(root)).encode() + b"\0" + path.read_bytes())
+    return {"python_executable": str(Path(sys.executable).resolve()),
+            "runtime_version": manifest["version"],
+            "runtime_digest": digest.hexdigest(),
+            "capabilities": capabilities}
 
 
 def read_json(path, default=None):
@@ -197,6 +216,7 @@ def integrate(homes, config, binary=None, mode="auto", dry_run=False):
                 record = {"version": installation.get("version", __version__), "plugin": SELECTOR,
                           "mode": selected, "distribution": "marketplace", "config_dir": str(config),
                           "plugin_root": str(plugin_root), "runtime_root": str(target), "codex_bin": binary}
+                record.update(runtime_metadata(target))
                 if selected == "compat":
                     record.update(command=command, reason=reason)
                 write_private(home / "bark-install.json", json.dumps(record, indent=2) + "\n")
@@ -217,7 +237,7 @@ def integrate(homes, config, binary=None, mode="auto", dry_run=False):
             raise
     for outcome in outcomes:
         print(outcome)
-    print("Marketplace source preserved. Review Bark in /hooks in a new Codex session.")
+    print("Marketplace source preserved. Review Bark in /hooks; restart/resume if hooks are missing or stale.")
 
 
 def install(homes, config, binary=None, mode="auto", dry_run=False):
@@ -293,6 +313,7 @@ def install(homes, config, binary=None, mode="auto", dry_run=False):
                     raise BarkError("Codex did not create the expected plugin cache. Update Codex and retry.")
                 record = {"version": version, "plugin": SELECTOR, "mode": selected, "distribution": "tool",
                           "config_dir": str(config), "plugin_root": str(plugin_root), "codex_bin": binary}
+                record.update(runtime_metadata(plugin_root))
                 if selected == "compat":
                     record["command"] = command
                     record["reason"] = reason or "Compatibility mode was explicitly selected."
@@ -323,7 +344,7 @@ def install(homes, config, binary=None, mode="auto", dry_run=False):
             else:
                 write_private(catalog, previous_catalog.decode("utf-8"))
             raise
-    print("Run barknotify-plugin setup, then review Bark in /hooks in a new Codex session.")
+    print("Run barknotify-plugin setup, then review Bark in /hooks; restart/resume if hooks are missing or stale.")
 
 
 def uninstall(homes, config, binary=None, dry_run=False):

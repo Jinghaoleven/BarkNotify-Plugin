@@ -3,6 +3,9 @@ import io
 import json
 import os
 from pathlib import Path
+import select
+import socket
+import socketserver
 import sqlite3
 import stat
 import subprocess
@@ -29,9 +32,16 @@ class BarkTests(unittest.TestCase):
         self.requests = []
         self.code = 200
         self.http_status = 200
+        self.pings = []
         test = self
 
         class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                test.pings.append(self.path)
+                self.send_response(test.http_status)
+                self.end_headers()
+                self.wfile.write(b"pong")
+
             def do_POST(self):
                 payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 test.requests.append((self.path, payload))
@@ -95,6 +105,96 @@ class BarkTests(unittest.TestCase):
         self.assertIn("test-model", payload["body"])
         for secret in ("private response", "private prompt", "secret command", "session-123", "turn-secret", "/private/source"):
             self.assertNotIn(secret, json.dumps(payload))
+
+    def test_proxy_setting_preserves_disabled_state_key_and_events_without_a_push(self):
+        self.run_command("disable")
+        before = json.loads((self.root / "config" / "config.json").read_text())
+        key = (self.root / "config" / "device-key").read_bytes()
+        self.run_command("proxy", "--url", "socks5h://127.0.0.1:10808")
+        after = json.loads(self.run_command("status", "--json").stdout)
+        self.assertEqual(after["proxy_url"], "socks5h://127.0.0.1:10808")
+        self.assertFalse(after["enabled"])
+        self.assertEqual(after["events"], before["events"])
+        self.assertEqual((self.root / "config" / "device-key").read_bytes(), key)
+        self.assertEqual(self.requests, [])
+        self.run_command("proxy", "--clear")
+        self.assertIsNone(json.loads(self.run_command("status", "--json").stdout)["proxy_url"])
+        self.assertFalse(json.loads(self.run_command("status", "--json").stdout)["enabled"])
+
+    def test_invalid_proxy_does_not_replace_settings_or_expose_credentials(self):
+        path = self.root / "config" / "config.json"
+        before = path.read_bytes()
+        for url in ("socks5h://user:secret@127.0.0.1:10808", "file:///secret", "http://localhost",
+                    "socks5h://localhost:0", "http://localhost:65536", "http://localhost:80/secret",
+                    "http://localhost:80?secret", "http://localhost:80#secret", "http://local\nhost:80"):
+            result = self.run_command("proxy", "--url", url, expected=1)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertNotIn("secret", result.stdout + result.stderr)
+            self.assertIn("proxy_url", result.stderr)
+
+    def test_socks_hostname_delivery_overrides_environment_and_no_proxy_for_test_and_hook(self):
+        destinations = []
+        test = self
+
+        class SocksHandler(socketserver.BaseRequestHandler):
+            def exact(self, count):
+                data = b""
+                while len(data) < count:
+                    chunk = self.request.recv(count - len(data))
+                    if not chunk:
+                        raise EOFError()
+                    data += chunk
+                return data
+
+            def handle(self):
+                self.request.settimeout(5)
+                version, methods = self.exact(2)
+                self.exact(methods)
+                if version != 5:
+                    return
+                self.request.sendall(b"\x05\x00")
+                version, command, _, address_type = self.exact(4)
+                if version != 5 or command != 1 or address_type != 3:
+                    return  # The .invalid hostname must be sent to the SOCKS server.
+                hostname = self.exact(self.exact(1)[0]).decode()
+                port = int.from_bytes(self.exact(2), "big")
+                destinations.append((hostname, port))
+                with socket.create_connection(("127.0.0.1", test.server.server_port), timeout=3) as upstream:
+                    self.request.sendall(b"\x05\x00\x00\x01\x7f\x00\x00\x01\x00\x00")
+                    peers = (self.request, upstream)
+                    while True:
+                        readable, _, _ = select.select(peers, [], [], 3)
+                        if not readable:
+                            return
+                        for peer in readable:
+                            data = peer.recv(65536)
+                            if not data:
+                                return
+                            (upstream if peer is self.request else self.request).sendall(data)
+
+        with socketserver.ThreadingTCPServer(("127.0.0.1", 0), SocksHandler) as proxy:
+            proxy.daemon_threads = True
+            thread = threading.Thread(target=proxy.serve_forever, daemon=True)
+            thread.start()
+            try:
+                self.run_command("configure", "--server", "http://bark.invalid:" + str(self.server.server_port))
+                self.run_command("proxy", "--url", "socks5h://127.0.0.1:" + str(proxy.server_address[1]))
+                self.env.update({"http_proxy": "http://127.0.0.1:1", "HTTPS_PROXY": "http://127.0.0.1:1",
+                                 "ALL_PROXY": "http://127.0.0.1:1", "NO_PROXY": "*", "no_proxy": "*"})
+                self.run_command("test")
+                self.assertEqual(self.hook().stdout, "{}\n")
+                self.run_command("network")
+                self.assertEqual(self.pings, ["/ping"])
+                self.assertEqual(destinations, [("bark.invalid", self.server.server_port)] * 3)
+                self.assertEqual(len(self.requests), 2)
+                self.assertEqual(self.requests[-1][1]["device_key"], "test-key")
+                self.run_command("proxy", "--clear")
+                # Clearing must restore environment behavior; .invalid now fails local DNS.
+                self.run_command("test", expected=1)
+                self.assertEqual(len(destinations), 3)
+            finally:
+                proxy.shutdown()
+                thread.join()
 
     def test_approval_never_returns_a_decision(self):
         result = self.hook("PermissionRequest", tool_name="Bash", tool_input={"command": "password", "description": "private reason"})
@@ -226,13 +326,15 @@ class BarkTests(unittest.TestCase):
             self.assertEqual(config["group"], "codex")
             self.assertTrue(config["enabled"])
 
-    def test_setup_verification_failure_keeps_delivery_disabled(self):
+    def test_setup_failure_preserves_working_destination_and_enabled_state(self):
+        original = (self.root / "config" / "config.json").read_bytes()
         self.code = 500
         result = self.run_command("setup", "--key-stdin", input="replacement-key", expected=1)
         self.assertNotIn("replacement-key", result.stderr)
         config = json.loads((self.root / "config" / "config.json").read_text())
-        self.assertFalse(config["enabled"])
-        self.assertEqual((self.root / "config" / "device-key").read_text().strip(), "replacement-key")
+        self.assertTrue(config["enabled"])
+        self.assertEqual((self.root / "config" / "config.json").read_bytes(), original)
+        self.assertEqual((self.root / "config" / "device-key").read_text().strip(), "test-key")
 
     def test_http_errors_report_status_and_guidance_without_response_or_key(self):
         for status, guidance in ((400, "device registration"), (403, "proxy settings"),
@@ -244,7 +346,7 @@ class BarkTests(unittest.TestCase):
                 self.assertIn(guidance, result.stderr)
                 for secret in ("replacement-key", "sensitive server error"):
                     self.assertNotIn(secret, result.stdout + result.stderr)
-                self.assertFalse(json.loads((self.root / "config" / "config.json").read_text())["enabled"])
+                self.assertTrue(json.loads((self.root / "config" / "config.json").read_text())["enabled"])
 
     def test_proxy_connect_failure_is_distinct_from_device_registration(self):
         error = subprocess.CalledProcessError(56, ["curl"], output="\n000",
@@ -316,6 +418,77 @@ class BarkTests(unittest.TestCase):
         self.assertIn("Unset BARKNOTIFY_DEVICE_KEY", result.stderr)
         self.assertNotIn("environment-key", result.stderr)
         self.assertEqual((self.root / "config" / "device-key").read_text().strip(), "test-key")
+
+    def test_setup_and_preferences_preserve_pause(self):
+        self.run_command("disable")
+        self.run_command("setup", "--language", "zh", "--no-test")
+        self.run_command("preferences", "--group", "paused-group", "--events", "session.started")
+        self.hook()
+        status = json.loads(self.run_command("status", "--json").stdout)
+        self.assertFalse(status["enabled"])
+        self.assertEqual(status["group"], "paused-group")
+        self.assertEqual(status["language"], "zh")
+        self.assertEqual(self.requests, [])
+        self.run_command("setup", "--key-stdin", input="replacement-key")
+        self.assertFalse(json.loads(self.run_command("status", "--json").stdout)["enabled"])
+        self.assertEqual(len(self.requests), 1)
+
+    def test_network_uses_ping_without_device_key_or_push(self):
+        (self.root / "config" / "device-key").unlink()
+        self.run_command("network")
+        self.assertEqual(self.pings, ["/ping"])
+        self.assertEqual(self.requests, [])
+        self.http_status = 503
+        result = self.run_command("network", expected=1)
+        self.assertNotIn("sensitive server error", result.stderr)
+
+    def test_manual_history_is_bounded_and_status_whitelists_settings(self):
+        self.run_command("test")
+        history = self.root / "config" / "delivery-history.json"
+        self.assertEqual(json.loads(history.read_text())[-1]["source"], "manual")
+        with patch.dict(os.environ, self.env):
+            threads = [threading.Thread(target=bark.delivery_status, args=("turn.completed", "sent")) for _ in range(25)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+        self.assertEqual(len(json.loads(history.read_text())), 20)
+        path = self.root / "config" / "config.json"
+        config = json.loads(path.read_text())
+        config["accidental_device_key"] = "secret-unknown-field"
+        config["schema_version"] = 1
+        path.write_text(json.dumps(config))
+        self.assertNotIn("secret-unknown-field", self.run_command("status", "--json").stdout)
+        self.run_command("preferences", "--language", "zh")
+        self.assertEqual(json.loads(path.read_text())["schema_version"], 2)
+
+    def test_settings_write_failure_restores_both_files(self):
+        with patch.dict(os.environ, self.env):
+            config = bark.load_config()
+            before = {name: (self.root / "config" / name).read_bytes() for name in ("config.json", "device-key")}
+            with patch.object(bark, "save_config", side_effect=OSError("disk failure")):
+                with self.assertRaises(OSError):
+                    bark.commit_settings({**config, "server_url": "https://example.invalid"}, "replacement")
+            for name, value in before.items():
+                self.assertEqual((self.root / "config" / name).read_bytes(), value)
+
+    def test_hook_skips_a_settings_transaction_without_waiting_or_mixing_key(self):
+        with patch.dict(os.environ, self.env), bark.settings_lock():
+            start = time.monotonic()
+            self.assertEqual(self.hook("SessionEnd").stdout, "{}\n")
+            self.assertEqual(self.hook().stdout, "{}\n")
+            self.assertLess(time.monotonic() - start, 1)
+        self.assertEqual(self.requests, [])
+        self.assertEqual(json.loads((self.root / "config" / "last-delivery.json").read_text())["outcome"], "skipped")
+
+    def test_proxy_requires_a_capable_registered_runtime(self):
+        home = self.root / "codex"
+        home.mkdir()
+        (home / "bark-install.json").write_text(json.dumps({"runtime_version": "0.4.2", "capabilities": []}))
+        before = (self.root / "config" / "config.json").read_bytes()
+        result = self.run_command("proxy", "--url", "socks5h://127.0.0.1:10808", expected=1)
+        self.assertIn("Upgrade the plugin", result.stderr)
+        self.assertEqual((self.root / "config" / "config.json").read_bytes(), before)
 
 
 if __name__ == "__main__":

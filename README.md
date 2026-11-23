@@ -1,93 +1,61 @@
 # BarkNotify-Plugin
 
-BarkNotify-Plugin brings remote Codex CLI session alerts to iOS. Designed primarily for servers and clusters accessed over SSH, it sends a notification when a turn ends or approval is requested, so you can stay informed away from the terminal.
+Receive remote Codex CLI session alerts on your iPhone through [Bark](https://github.com/Finb/Bark). By default, it notifies you when a turn ends or approval is requested. English and Chinese notifications are supported.
 
-[简体中文](README.zh-CN.md) · [Command reference](docs/usage.md)
+[简体中文](README.zh-CN.md) · [Commands](docs/usage.md) · [Network extension](extensions/reverse-socks/README.md)
 
-![Preview of turn-end and approval notifications on iOS](docs/assets/notification-preview.png)
+![Example notifications](docs/assets/notification-preview.png)
 
-The receiver is the [official Bark iOS app](https://github.com/Finb/Bark). Android is outside the current support scope. English notifications are the default; Chinese is available.
+## Get started
 
-The [Codex desktop app](https://developers.openai.com/codex/app/settings/#notifications) already provides turn-completion notifications. This plugin focuses on delivering remote CLI session alerts to mobile devices.
+Requires macOS or Linux, Codex plugin management, Git, curl, and **Python 3.11+** on the Codex host.
 
-## Install
+1. Install [Bark on your iPhone](https://apps.apple.com/app/bark-custom-notifications/id1403753865), open it, and allow notifications. Keep the default server. Use **Copy → Copy Address and Key** when the device address appears.
+2. Install on the host where Codex runs:
 
-On the Codex host, use macOS or Linux with Git, Python 3.11+, curl, and Codex plugin management available. The host must be able to reach your Bark server.
+   ```bash
+   codex plugin marketplace add https://github.com/Jinghaoleven/BarkNotify-Plugin.git
+   codex plugin add barknotify@barknotify-plugin
+   ```
 
-### 1. Configure the mobile app
+3. Open a Codex session and ask:
 
-1. Install [Bark from the App Store](https://apps.apple.com/app/bark-custom-notifications/id1403753865) and open it.
-2. Allow notifications. If you previously denied them, open **iOS Settings → Notifications → Bark → Allow Notifications**, then return to Bark.
-3. Keep the default server, `api.day.app`. Wait for the device address to appear, then open the menu beside **Copy** and choose **Copy Address and Key**. Older versions may show a test URL instead.
+   > Set up BarkNotify-Plugin and guide me through entering my Bark URL privately in a terminal.
 
-### 2. Install in Codex
+   Run the setup command Codex provides in a separate terminal **on the same host**. Paste the address at the hidden prompt. **Keep the address and key out of chat.** Add “Use Chinese notifications” if preferred. [Manual setup](docs/usage.md#manual-setup) is also available.
+4. Confirm **BarkNotify-Plugin · Test** appears on your phone. Review and trust Bark in `/hooks`. If the hooks are missing after installation, restart or resume Codex and review them again. Finish a short turn to verify automatic delivery.
 
-Run on the host where you use Codex:
+Bark can be closed after setup. Launchers sharing `CODEX_HOME` use one installation.
 
-```bash
-codex plugin marketplace add https://github.com/Jinghaoleven/BarkNotify-Plugin.git
-codex plugin add barknotify@barknotify-plugin
-```
+## Everyday use
 
-Provider launchers sharing the same `CODEX_HOME` need only one installation.
+Ask Codex to check status, change the language, pause or resume notifications, or send a test. Preference changes preserve your paused/enabled state. You can also disable Bark in `/plugins`.
 
-### 3. Set up notifications
+A turn-end alert can mean Codex is waiting for your reply; it does not guarantee the whole task succeeded. Delivery is best effort. Android is outside the current support scope.
 
-Start a new Codex session and send:
-
-> Set up BarkNotify-Plugin and guide me through entering my Bark URL privately in a terminal.
-
-Codex will prepare the plugin and give you a setup command. Run it in a **separate terminal on the same host**, then paste the address copied from Bark at the hidden input prompt. For SSH or containers, use a terminal in that same environment. **Do not send your address or key in chat.** Paste the address, rather than a curl command.
-
-For Chinese notifications, add “Use Chinese notifications” to your request. If you prefer to configure it yourself, follow [manual setup](docs/usage.md#manual-setup-from-the-installed-plugin).
-
-### 4. Verify notifications
-
-1. Confirm **BarkNotify-Plugin · Test** appears on your iOS device.
-2. Restart Codex and review and trust Bark in `/hooks`.
-3. Finish a short turn and confirm its automatic notification arrives.
-
-Bark does not need to stay open afterward.
-
-## Use
-
-Ask Codex to check notification status, send a test, change the language, or pause notifications. You can also disable Bark in `/plugins`.
-
-By default, you receive notifications when a turn ends or approval is requested. A turn may end while Codex waits for your reply; the notification does not mean the whole task is finished. [Commands and notification options](docs/usage.md#preferences) are available for manual use.
-
-## Update or uninstall
-
-To update:
+## Update or remove
 
 ```bash
 codex plugin marketplace upgrade barknotify-plugin
 codex plugin add barknotify@barknotify-plugin
 ```
 
-Then ask Codex to finish updating BarkNotify-Plugin. Restart Codex and review `/hooks` again. Your saved device address and preferences are kept.
+Then ask Codex to finish updating BarkNotify-Plugin and review `/hooks`. Restart or resume if the session still has the old hooks. Saved credentials and preferences are kept.
 
-To uninstall:
-
-```bash
-python3 "${CODEX_HOME:-$HOME/.codex}/bark/runtime/scripts/barknotify.py" uninstall
-```
-
-Saved settings are kept for reinstallation. See [manual removal](docs/usage.md#removal) if you already removed the plugin through `/plugins`.
+To remove it, ask Codex to uninstall BarkNotify-Plugin, or follow [removal commands](docs/usage.md#removal). Saved settings are retained.
 
 ## Troubleshooting
 
-| Problem | What to do |
+| Problem | Action |
 | --- | --- |
-| Bark has no device address | Allow notifications, return to Bark, and wait while connected to the network |
-| Setup needs a key | Run setup and enter the address from Bark |
-| Test was accepted but no mobile notification appears | Check Bark notification permission, Focus settings, and that you copied the receiving device's address |
-| Manual test works but automatic notifications do not | Enable Bark in `/plugins`, review `/hooks`, and restart Codex |
-| Proxy reports CONNECT 403 | Ask your network administrator to allow your Bark server, or use a working proxy; keep your key. See [network checks](docs/usage.md#network-and-proxy-troubleshooting) |
-
-For a self-hosted Bark server, add and select it in the Bark App before copying the device address.
+| Bark has no device address | Allow notifications, return to Bark, and wait while online |
+| Test accepted, but absent on phone | Check iOS notification permissions, Focus, and the receiving device address |
+| Manual test works; automatic alerts do not | Check `/plugins`, paused state, and `/hooks`; reload the session if hooks are missing or stale |
+| Host cannot reach Bark | Run the [network check](docs/usage.md#network). Keep your key; use a working proxy or the optional [standalone SSH tunnel](extensions/reverse-socks/README.md) |
+| New phone or self-hosted server | Select the server in Bark and run setup with that device's address |
 
 ## Privacy
 
-Automatic notifications can show the project or session name, status, and model/tool names. Conversation content is not sent. Use a session name suitable for your lock screen. The push address is stored privately on the Codex host; notifications go to your chosen Bark server. There is no analytics.
+Automatic pushes include session/project names, status, and optional model/tool names. Prompts, responses, commands, full paths, and session IDs are omitted. Choose names suitable for your lock screen. Credentials stay privately on the Codex host, outside the plugin cache. Pushes go to your selected Bark server; there is no analytics.
 
-Licensed under [Apache-2.0](LICENSE). [Developer guide](docs/development.md).
+[Apache-2.0](LICENSE) · [Developer guide](docs/development.md) · [Security](SECURITY.md)

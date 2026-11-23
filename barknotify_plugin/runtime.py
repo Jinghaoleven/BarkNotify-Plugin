@@ -2,6 +2,8 @@
 """Private configuration and passive lifecycle notifications for Codex."""
 
 from datetime import datetime, timezone
+from contextlib import closing, contextmanager
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -23,7 +25,7 @@ EVENTS = {
     "SessionEnd": ("session.ended", "Session ended", "会话结束"),
 }
 DEFAULTS = {
-    "schema_version": 1,
+    "schema_version": 2,
     "enabled": False,
     "events": ["turn.completed", "approval.required"],
     "server_url": "https://api.day.app",
@@ -32,6 +34,7 @@ DEFAULTS = {
     "level": "active",
     "timeout_seconds": 5,
     "language": "en",
+    "proxy_url": None,
 }
 
 
@@ -74,13 +77,48 @@ def write_private(path, value):
 
 
 def save_config(config, directory=None):
+    config = {**config, "schema_version": 2}
+    validate(config)
     write_private((directory or config_dir()) / "config.json", json.dumps(config, ensure_ascii=False, indent=2) + "\n")
+
+
+@contextmanager
+def settings_lock(blocking=True):
+    directory = config_dir()
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd = os.open(directory / ".settings.lock", os.O_CREAT | os.O_RDWR, 0o600)
+    with os.fdopen(fd, "w") as stream:
+        try:
+            fcntl.flock(stream, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+        except BlockingIOError:
+            yield False
+            return
+        yield True
+
+
+def commit_settings(config, key=None):
+    """Commit a verified destination; restore both files on a failed write."""
+    paths = [config_dir() / "config.json"]
+    if key is not None:
+        paths.append(config_dir() / "device-key")
+    previous = {path: path.read_text() if path.exists() else None for path in paths}
+    try:
+        if key is not None:
+            write_private(paths[1], key + "\n")
+        save_config(config)
+    except BaseException:
+        for path, value in previous.items():
+            if value is None:
+                path.unlink(missing_ok=True)
+            else:
+                write_private(path, value)
+        raise
 
 
 def validate(config):
     if not isinstance(config, dict):
         raise ValueError("configuration must be an object")
-    if config.get("schema_version") != 1 or type(config.get("enabled")) is not bool:
+    if config.get("schema_version") not in (1, 2) or type(config.get("enabled")) is not bool:
         raise ValueError("invalid configuration version or enabled flag")
     events = config.get("events")
     if not isinstance(events, list) or any(not isinstance(e, str) or e not in {v[0] for v in EVENTS.values()} for e in events):
@@ -106,6 +144,18 @@ def validate(config):
         raise ValueError("timeout_seconds must be greater than 0 and at most 10")
     if config.get("language", "en") not in ("en", "zh"):
         raise ValueError("language must be en or zh")
+    proxy = config.get("proxy_url")
+    if proxy is not None:
+        try:
+            parsed_proxy = urlsplit(proxy) if isinstance(proxy, str) else None
+            if (not parsed_proxy or parsed_proxy.scheme not in ("http", "https", "socks5", "socks5h") or
+                    not parsed_proxy.hostname or parsed_proxy.username is not None or parsed_proxy.password is not None or
+                    parsed_proxy.path not in ("", "/") or parsed_proxy.query or parsed_proxy.fragment or
+                    not parsed_proxy.port or not 1 <= parsed_proxy.port <= 65535 or
+                    any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in proxy)):
+                raise ValueError()
+        except ValueError:
+            raise ValueError("proxy_url must be an HTTP(S) or SOCKS5 URL with a port, without credentials or a path") from None
     return config
 
 
@@ -185,7 +235,7 @@ def session_name(session_id):
     databases = sorted(home.glob("state_*.sqlite"), key=lambda p: int(re.search(r"state_(\d+)", p.name)[1]) if re.search(r"state_(\d+)", p.name) else -1, reverse=True)
     for database in databases:
         try:
-            with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.1) as db:
+            with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.1)) as db:
                 columns = {row[1] for row in db.execute("PRAGMA table_info(threads)")}
                 fields = [field for field in ("name", "title") if field in columns]
                 if not fields:
@@ -227,17 +277,40 @@ def context(event):
     return name or project or "Codex", project
 
 
-def send(config, title, body, timeout=None):
-    """curl honors the host proxy. Secrets go through stdin, never argv or logs."""
-    payload = json.dumps({"device_key": device_key(config), "title": title, "body": body,
+def proxy_options(config):
+    return ["--proxy", config["proxy_url"], "--noproxy", ""] if config.get("proxy_url") else []
+
+
+def network_check(config):
+    """Probe Bark through the same proxy selection as pushes, without a key."""
+    try:
+        result = subprocess.run([
+            "curl", "-q", "--silent", "--show-error", "--fail", "--connect-timeout", "3",
+            "--max-time", "8", *proxy_options(config), "--output", "/dev/null",
+            "--write-out", "%{http_code}", config["server_url"].rstrip("/") + "/ping",
+        ], capture_output=True, text=True, timeout=8.5, check=True)
+        if result.stdout.strip() != "200":
+            raise BarkError("Bark health endpoint did not return HTTP 200.")
+        return "Bark /ping returned HTTP 200 through the selected network route"
+    except FileNotFoundError:
+        raise BarkError("curl is missing. Install curl.") from None
+    except (OSError, subprocess.SubprocessError):
+        raise BarkError("Cannot reach Bark through the selected route. Check the proxy or SSH tunnel.") from None
+
+
+def send(config, title, body, timeout=None, key=None):
+    """Use a Bark-only proxy when configured, otherwise honor the host proxy."""
+    payload = json.dumps({"device_key": key if key is not None else device_key(config), "title": title, "body": body,
                           "group": config["group"], "level": config["level"]}, ensure_ascii=False)
     budget = min(config["timeout_seconds"], timeout) if timeout else config["timeout_seconds"]
+    proxy_args = proxy_options(config)
     try:
         result = subprocess.run([
             "curl", "-q", "--silent", "--show-error", "--fail", "--request", "POST",
             "--header", "Content-Type: application/json; charset=utf-8", "--data-binary", "@-",
             "--connect-timeout", str(min(budget, 2)), "--max-time", str(budget),
             "--write-out", "\n%{http_code}",
+            *proxy_args,
             config["server_url"].rstrip("/") + "/push",
         ], input=payload, capture_output=True, text=True, timeout=budget + 0.25, check=True)
         response, _, _status = result.stdout.rpartition("\n")
@@ -251,7 +324,7 @@ def send(config, title, body, timeout=None):
         if "CONNECT" in (error.stderr or ""):
             match = re.search(r"(?:HTTP code|response) ([1-5]\d{2})", error.stderr or "")
             status = " (CONNECT HTTP " + match[1] + ")" if match else " (CONNECT)"
-            raise BarkError("Proxy refused the Bark connection" + status + ". Check HTTPS_PROXY/ALL_PROXY or use a proxy that can reach your Bark server.") from None
+            raise BarkError("Proxy refused the Bark connection" + status + ". Check the Bark proxy, HTTPS_PROXY/ALL_PROXY, or use a proxy that can reach your Bark server.") from None
         if error.returncode == 22:
             status = (error.stdout or "").rstrip().rsplit("\n", 1)[-1]
             if not re.fullmatch(r"[45]\d{2}", status):
@@ -278,15 +351,26 @@ def compatibility_enabled(record):
         return False
 
 
-def delivery_status(event, outcome, message=None):
+def delivery_status(event, outcome, message=None, source="hook"):
     # Keep only a local diagnostic summary, never the raw hook input or payload.
     if not config_dir().exists():
         return
-    result = {"event": event, "outcome": outcome, "timestamp": datetime.now(timezone.utc).isoformat()}
+    result = {"event": event, "outcome": outcome, "source": source, "timestamp": datetime.now(timezone.utc).isoformat()}
     if message:
         result["message"] = message
     try:
-        write_private(config_dir() / "last-delivery.json", json.dumps(result) + "\n")
+        fd = os.open(config_dir() / ".delivery.lock", os.O_CREAT | os.O_RDWR, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            fcntl.flock(stream, fcntl.LOCK_EX)
+            path = config_dir() / "delivery-history.json"
+            try:
+                history = json.loads(path.read_text())
+                if not isinstance(history, list):
+                    history = []
+            except (OSError, ValueError):
+                history = []
+            write_private(path, json.dumps((history + [result])[-20:]) + "\n")
+            write_private(config_dir() / "last-delivery.json", json.dumps(result) + "\n")
     except OSError:
         pass
 
@@ -309,12 +393,17 @@ def hook(compat=False):
             # The native bundle may become available after a Codex upgrade. The
             # registered bridge remains the sole sender until install re-detects it.
             return
-        config = load_config()
-        state = chinese if config["language"] == "zh" else english
-        if not config["enabled"] or event_name not in config["events"]:
-            return
         if event.get("agent_id") or (hook_name == "SessionStart" and event.get("source") == "compact"):
             return
+        with settings_lock(blocking=False) as acquired:
+            if not acquired:
+                delivery_status(event_name, "skipped", "Settings update in progress.")
+                return
+            config = load_config()
+            if not config["enabled"] or event_name not in config["events"]:
+                return
+            key = device_key(config)
+        state = chinese if config["language"] == "zh" else english
         name, project = context(event)
         fields = ("状态：", "项目：", "来源：", "模型：", "工具：", "方式：") if config["language"] == "zh" else ("Status: ", "Project: ", "Label: ", "Model: ", "Tool: ", "Source: ")
         body = [fields[0] + state]
@@ -330,7 +419,7 @@ def hook(compat=False):
             body.append(fields[4] + (single_line(event.get("tool_name")) or "unknown"))
         if hook_name == "SessionStart" and event.get("source") in ("resume", "fork"):
             body.append(fields[5] + event["source"])
-        send(config, name + " · " + state, "\n".join(body), 1.5 if hook_name in ("Interrupt", "SessionEnd") else None)
+        send(config, name + " · " + state, "\n".join(body), 1.5 if hook_name in ("Interrupt", "SessionEnd") else None, key=key)
         delivery_status(event_name, "sent")
     except BarkError as error:
         delivery_status(event_name, "failed", str(error))

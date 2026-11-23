@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0 — Beta
+
+- Add a dedicated Bark HTTP(S)/SOCKS5 proxy and a no-push network check using the same route as delivery.
+- Stage and verify destination changes before saving; preserve working credentials and paused state after failures or preference changes.
+- Add preferences, strict readiness diagnostics, a bounded delivery history, and redacted status output.
+- Record interpreter, runtime version, digest and capabilities; bootstrap bundled hooks with a supported Python interpreter.
+- Write configuration schema 2, retaining schema 1 reads and preventing old runtimes from silently ignoring proxy settings.
+- Replace the private forwarding integration with the independent barknotify-tunnel 0.1.0 extension: owned OpenSSH connection, loopback verification, optional launchd/user-systemd recovery, stop and uninstall.
+- Simplify bilingual user documentation and separate development guidance. Add required native Codex, fresh-wheel and real SSH CI checks.
+
 ## 0.4.2 — Beta
 
 - Document setup directly from the installed plugin, stable script paths, and the correct terminal for remote Codex hosts.

@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "barknotify-tunnel"
+version = "0.1.0"
+description = "Standalone reverse SOCKS tunnel for restricted BarkNotify hosts"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+readme = "README.md"
+
+[project.scripts]
+barknotify-tunnel = "barknotify_tunnel.cli:main"
+
+[tool.setuptools]
+packages = ["barknotify_tunnel", "barknotify_tunnel.scripts"]
+
+[tool.setuptools.package-data]
+barknotify_tunnel = ["scripts/*.py"]

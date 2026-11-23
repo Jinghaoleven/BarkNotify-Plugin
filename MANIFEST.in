@@ -6,7 +6,10 @@ include barknotify_plugin/LICENSE
 include .agents/plugins/marketplace.json
 recursive-include docs *.md *.png *.py
 recursive-include tests *.py
+recursive-include extensions *.md *.py *.toml *.in LICENSE NOTICE
 recursive-include barknotify_plugin *.py *.json *.md
 global-exclude __pycache__ *.pyc
 include NOTICE
 include barknotify_plugin/NOTICE
+include CONTRIBUTING.md
+include SECURITY.md

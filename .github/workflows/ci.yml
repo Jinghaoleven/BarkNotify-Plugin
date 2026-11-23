@@ -1,7 +1,7 @@
 name: Package checks
 on: [push, pull_request]
 jobs:
-  test:
+  package:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -12,8 +12,42 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m pip install .
+      - run: python -m pip install build
       - run: python -m unittest discover -s tests -v
-      - run: barknotify-plugin --version
-      - run: barknotify-plugin install --dry-run
-      - run: python -m pip wheel . --no-deps --wheel-dir dist
+      - run: python -m build
+      - run: python -m build extensions/reverse-socks --outdir dist/tunnel
+      - run: |
+          python -m venv /tmp/bark-artifact
+          /tmp/bark-artifact/bin/pip install dist/*.whl dist/tunnel/*.whl
+          /tmp/bark-artifact/bin/python tests/artifact_smoke.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.os }}-${{ matrix.python }}
+          path: dist/
+  native:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --global @openai/codex@0.166.0
+      - run: python tests/native_install.py
+        env:
+          BARKNOTIFY_REQUIRE_NATIVE_TEST: '1'
+  ssh-tunnel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - run: sudo apt-get update && sudo apt-get install -y openssh-server iproute2 curl
+      - run: sudo mkdir -p /run/sshd
+      - run: sudo env BARKNOTIFY_REQUIRE_SSH_TEST=1 "$(command -v python)" tests/ssh_tunnel.py

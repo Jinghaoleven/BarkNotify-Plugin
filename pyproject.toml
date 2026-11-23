@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "barknotify-plugin"
-version = "0.4.2"
+version = "0.5.0"
 description = "Bark push notifications for Codex sessions"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,8 +27,10 @@ Issues = "https://github.com/Jinghaoleven/BarkNotify-Plugin/issues"
 barknotify-plugin = "barknotify_plugin.cli:main"
 
 [tool.setuptools]
-packages = ["barknotify_plugin"]
 include-package-data = true
 
+[tool.setuptools.packages.find]
+include = ["barknotify_plugin*"]
+
 [tool.setuptools.package-data]
-barknotify_plugin = ["LICENSE", "NOTICE", "plugin.json", "assets/*.json", "skills/*/SKILL.md", "scripts/*.py"]
+barknotify_plugin = ["LICENSE", "NOTICE", "*.json", "assets/*.json", "skills/*/SKILL.md", "scripts/*.py"]
