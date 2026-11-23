@@ -1,6 +1,8 @@
 # BarkNotify-Plugin
 
-Receive remote Codex CLI session alerts on your iPhone through [Bark](https://github.com/Finb/Bark). By default, it notifies you when a turn ends or approval is requested.
+Lightweight [Bark](https://github.com/Finb/Bark) notifications for your existing Codex CLI workflow. Get mobile alerts when a turn ends or approval is requested.
+
+Built for remote development machines and cluster sessions. Keep using Codex in your terminal; the optional [SSH tunnel](extensions/reverse-socks/README.md) helps hosts with restricted outbound access reach Bark.
 
 [简体中文](README.zh-CN.md) · [Commands](docs/usage.md) · [Network extension](extensions/reverse-socks/README.md)
 

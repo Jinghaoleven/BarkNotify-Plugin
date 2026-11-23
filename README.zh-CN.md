@@ -1,6 +1,8 @@
 # BarkNotify-Plugin
 
-通过 [Bark](https://github.com/Finb/Bark) 在 iPhone 上接收远程 Codex CLI 会话通知。默认通知“本轮结束”和“审批请求”。
+为现有 Codex CLI 添加轻量的 [Bark](https://github.com/Finb/Bark) 通知，在移动端接收“本轮结束”和“审批请求”提醒。
+
+适合远程开发机与集群会话，继续在终端中使用 Codex 即可。主机出站网络受限时，可通过[可选 SSH 隧道扩展](extensions/reverse-socks/README.zh-CN.md)连接 Bark。
 
 [English](README.md) · [命令说明](docs/usage.md) · [网络扩展](extensions/reverse-socks/README.zh-CN.md)
 
