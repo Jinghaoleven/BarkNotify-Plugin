@@ -38,4 +38,4 @@ No device key belongs on the exit machine. Existing forwarding utilities and sys
 
 [Compatibility](compatibility.md) covers hook selection and policy limits. [Product review](product-review.md) records documentation references.
 
-README illustrations reproduce Bark's iOS notification layout using fictional content. Regenerate both with `python3 docs/assets/render_preview.py` after installing Pillow and system fonts (DejaVu Sans and Noto Sans CJK on Linux; system fonts on macOS). The renderer does not read a device screenshot. Keep original screenshots, private wallpaper, host/project names, keys and image metadata out of published artwork.
+README illustrations show Bark notifications on iPhone and a paired Apple Watch using fictional content. Regenerate both with `python3 docs/assets/render_preview.py` after installing Pillow and system fonts (DejaVu Sans and Noto Sans CJK on Linux; system fonts on macOS). Reference images inform the layout; the renderer does not read them. Keep original photographs, private wallpaper, host/project names, keys and image metadata out of published artwork.

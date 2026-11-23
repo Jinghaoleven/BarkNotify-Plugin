@@ -4,9 +4,9 @@
 
 [English](README.md) · [命令说明](docs/usage.md) · [网络扩展](extensions/reverse-socks/README.zh-CN.md)
 
-![iPhone 上的 Bark 显示示例项目的 Codex 审批请求和本轮结束通知](docs/assets/notification-preview.zh-CN.png)
-
-*按真实 Bark 显示重绘，会话和项目名称均为虚构示例。实际外观随 iOS 设置变化。*
+<p align="center">
+  <img src="docs/assets/notification-preview.zh-CN.png" alt="iPhone 和配对 Apple Watch 上的 Bark 通知" width="720">
+</p>
 
 ## 开始使用
 
@@ -27,7 +27,7 @@ Codex 所在主机需要 macOS 或 Linux、Codex 插件管理、Git、curl 和 *
    在**同一主机的另一个终端**运行 Codex 提供的配置命令，在隐藏输入提示处粘贴设备地址。**不要把地址或 key 发到聊天中。** 也可参照[手动配置](docs/usage.md#manual-setup)。
 4. 确认手机收到 **BarkNotify-Plugin · Test**。在 `/hooks` 检查并信任 Bark。如果安装后没有看到 hooks，重新启动或恢复 Codex 再检查。结束一个简短回合，确认自动通知送达。
 
-配置后无需保持 Bark 打开。多个启动器共用 `CODEX_HOME` 时，只需安装一次。
+配置后无需保持 Bark 打开。配对的 Apple Watch 可在 Watch App 中开启 Bark 通知镜像。多个启动器共用 `CODEX_HOME` 时，只需安装一次。
 
 ## 日常使用
 

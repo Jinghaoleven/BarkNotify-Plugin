@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 HERE = Path(__file__).resolve().parent
-SIZE = (1600, 960)
+SIZE = (1280, 560)
 SCALE = 2
 
 
@@ -68,7 +68,7 @@ def fit_title(value, width, size, chinese):
 
 def bark_icon(draw, x, y, size):
     """Draw Bark's recognizable red notification icon as simple shapes."""
-    draw.rounded_rectangle(box((x, y, x + size, y + size)), radius=22 * SCALE,
+    draw.rounded_rectangle(box((x, y, x + size, y + size)), radius=round(size * .25 * SCALE),
                            fill='#ff3b30', outline='#ff685c', width=SCALE)
     def shape(points):
         draw.polygon([box((x + a * size, y + b * size)) for a, b in points], fill='white')
@@ -81,113 +81,114 @@ def bark_icon(draw, x, y, size):
 
 def render(language):
     chinese = language == 'zh'
-    image = Image.new('RGB', box(SIZE))
-    draw = ImageDraw.Draw(image)
-    for y in range(image.height):
-        ratio = y / image.height
-        draw.line((0, y, image.width, y), fill=(round(246 - 7 * ratio),
-                                               round(249 - 7 * ratio),
-                                               round(250 - 6 * ratio)))
-
-    # Product copy is outside the simulated iOS surface.
-    draw.rounded_rectangle(box((80, 98, 350, 143)), radius=22 * SCALE, fill='#e2eceb')
-    text(draw, (101, 112), 'BARKNOTIFY  /  CODEX', 18, '#315c5b', True)
-    heading = ('会话动态，', '手机可见。') if chinese else ('Your Codex session.', 'On your iPhone.')
-    for index, line in enumerate(heading):
-        text(draw, (80, 215 + 80 * index), line, 56 if chinese else 51,
-             '#172d34', True, chinese)
-    description = ('本轮结束或需要审批时，', '通过 Bark 在 iPhone 上接收通知。') if chinese else (
-        'Turn ends. Approval requests.', 'Delivered through Bark.')
-    for index, line in enumerate(description):
-        text(draw, (84, 426 + index * 38), line, 24, '#52676e', chinese=chinese)
-
-    draw.rounded_rectangle(box((84, 579, 578, 726)), radius=24 * SCALE, fill='#e6edee')
-    text(draw, (110, 606), '> codex', 25, '#2e595d', True)
-    text(draw, (110, 658), '离开终端，也能及时回来。' if chinese else
-         'Step away. Stay in the loop.', 23, '#52676e', chinese=chinese)
-    text(draw, (84, 820), '中文 / English' if chinese else 'English / 中文',
-         22, '#52676e', chinese=True)
-
-    # Abstract wallpaper is generated here. No pixels from a private screenshot
-    # or wallpaper, status-bar identity, or notification history are retained.
-    panel_size = (840 * SCALE, 864 * SCALE)
-    panel = Image.new('RGB', panel_size)
-    pd = ImageDraw.Draw(panel)
-    for y in range(panel.height):
-        t = y / panel.height
-        pd.line((0, y, panel.width, y), fill=(round(36 - 20 * t),
-                                            round(66 - 35 * t),
-                                            round(79 - 40 * t)))
-    glow = Image.new('RGBA', panel_size)
-    gd = ImageDraw.Draw(glow)
-    gd.ellipse(box((-240, 240, 560, 1160)), fill=(103, 150, 142, 95))
-    gd.ellipse(box((400, -80, 1050, 610)), fill=(140, 182, 204, 60))
-    glow = glow.filter(ImageFilter.GaussianBlur(95 * SCALE))
-    panel = Image.alpha_composite(panel.convert('RGBA'), glow)
-    mask = Image.new('L', panel_size)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, *panel_size), radius=48 * SCALE, fill=255)
-    shadow = Image.new('RGBA', image.size)
-    ImageDraw.Draw(shadow).rounded_rectangle(box((704, 62, 1544, 926)),
-                                            radius=48 * SCALE, fill=(16, 39, 48, 52))
-    image = Image.alpha_composite(image.convert('RGBA'),
-                                 shadow.filter(ImageFilter.GaussianBlur(16 * SCALE)))
-    image.paste(panel, box((700, 48)), mask)
+    image = Image.new('RGBA', box(SIZE), '#f7f9fa')
     draw = ImageDraw.Draw(image)
 
-    text(draw, (745, 83), '9:41', 25, '#f4f7f8', True)
-    for i, height in enumerate((8, 12, 17, 22)):
-        draw.rounded_rectangle(box((1390 + i * 8, 110 - height, 1395 + i * 8, 110)),
-                               radius=2 * SCALE, fill='#f4f7f8')
-    draw.rounded_rectangle(box((1450, 88, 1493, 110)), radius=6 * SCALE,
-                           outline='#d6e0e4', width=2 * SCALE)
-    draw.rounded_rectangle(box((1454, 92, 1484, 106)), radius=3 * SCALE, fill='#f4f7f8')
-    draw.rectangle(box((1495, 95, 1498, 103)), fill='#d6e0e4')
-    text(draw, (745, 159), 'Bark', 41, '#f5f7f8')
-    draw.rounded_rectangle(box((1351, 148, 1456, 205)), radius=28 * SCALE,
-                           fill='#496472', outline='#73919e', width=SCALE)
-    text(draw, (1373, 168), '收起' if chinese else 'Less', 22, '#f3f7f8', chinese=chinese)
-    draw.ellipse(box((1470, 148, 1527, 205)), fill='#496472', outline='#73919e', width=SCALE)
-    for coords in ((1488, 166, 1508, 186), (1508, 166, 1488, 186)):
-        draw.line(box(coords), fill='#f3f7f8', width=3 * SCALE)
+    def centered_label(center, y, value):
+        width = font(24, True).getlength(value) / SCALE
+        text(draw, (center - width / 2, y), value, 24, '#344b56', True)
 
-    def card(y, title, lines, timestamp):
-        nonlocal draw, image
-        height = 112 + 40 * len(lines)
+    def surface(bounds, top, bottom, radius):
+        nonlocal image, draw
+        x0, y0, x1, y1 = bounds
+        width, height = box((x1 - x0, y1 - y0))
+        panel = Image.new('RGBA', (width, height))
+        pd = ImageDraw.Draw(panel)
+        for y in range(height):
+            t = y / max(1, height - 1)
+            color = tuple(round(a + (b - a) * t) for a, b in zip(top, bottom)) + (255,)
+            pd.line((0, y, width, y), fill=color)
+        mask = Image.new('L', panel.size)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, width, height),
+                                              radius=radius * SCALE, fill=255)
+        image.paste(panel, box((x0, y0)), mask)
+        draw = ImageDraw.Draw(image)
+
+    centered_label(408, 24, 'iPhone')
+    centered_label(1034, 24, 'Apple Watch')
+
+    # Compact side-by-side surfaces replace the oversized marketing hero.
+    surface((26, 76, 790, 535), (44, 75, 89), (22, 43, 52), 32)
+    surface((815, 76, 1254, 535), (238, 243, 246), (226, 234, 240), 32)
+    text(draw, (57, 101), 'Bark', 30, '#f1f7f9')
+    text(draw, (702, 110), '9:41', 19, '#d9e7ed')
+
+    def phone_card(y, title, lines, timestamp):
+        nonlocal image, draw
+        height = 79 + 28 * len(lines)
         layer = Image.new('RGBA', image.size)
         ld = ImageDraw.Draw(layer)
-        ld.rounded_rectangle(box((724, y, 1516, y + height)), radius=39 * SCALE,
-                             fill=(206, 224, 231, 61), outline=(204, 230, 239, 110), width=SCALE)
+        ld.rounded_rectangle(box((44, y, 772, y + height)), radius=28 * SCALE,
+                             fill=(211, 230, 237, 62), outline=(204, 229, 240, 102), width=SCALE)
         image = Image.alpha_composite(image, layer)
         draw = ImageDraw.Draw(image)
-        bark_icon(draw, 750, y + (height - 80) / 2, 80)
-        text(draw, (854, y + 28), fit_title(title, 496, 32, chinese),
-             32, '#f4f7f8', True, chinese)
-        time_font = font(22, chinese=chinese)
-        time_width = time_font.getlength(timestamp) / SCALE
-        text(draw, (1482 - time_width, y + 33), timestamp, 22, '#bacdd6', chinese=chinese)
+        bark_icon(draw, 67, y + (height - 58) / 2, 58)
+        text(draw, (146, y + 21), fit_title(title, 500, 25, chinese),
+             25, '#f6f9fa', True, chinese)
+        width = font(18, chinese=chinese).getlength(timestamp) / SCALE
+        text(draw, (748 - width, y + 25), timestamp, 18, '#c2d4dc', chinese=chinese)
         for index, line in enumerate(lines):
-            text(draw, (854, y + 73 + index * 40), line, 29, '#e5eef2', chinese=chinese)
+            text(draw, (146, y + 57 + 28 * index), line, 23, '#e5eef3', chinese=chinese)
         return y + height
 
     if chinese:
-        bottom = card(237, '演示会话 · 审批请求',
-                      ['状态：审批请求', '项目：demo-app', '模型：gpt-6.1-sol', '工具：Bash'], '现在')
-        card(bottom + 20, '演示会话 · 本轮结束',
-             ['状态：本轮结束', '项目：demo-app', '模型：gpt-6.1-sol'], '2 分钟前')
+        bottom = phone_card(156, '演示会话 · 审批请求',
+                            ['状态：审批请求', '项目：demo-app', '模型：gpt-6.1-sol', '工具：Bash'], '现在')
+        phone_card(bottom + 16, '演示会话 · 本轮结束',
+                   ['状态：本轮结束', '项目：demo-app', '模型：gpt-6.1-sol'], '2 分钟前')
     else:
-        bottom = card(237, 'demo-session · Approval requested',
-                      ['Status: Approval requested', 'Project: demo-app',
-                       'Model: gpt-6.1-sol', 'Tool: Bash'], 'now')
-        card(bottom + 20, 'demo-session · Turn ended',
-             ['Status: Turn ended', 'Project: demo-app', 'Model: gpt-6.1-sol'], '2m ago')
-    draw.rounded_rectangle(box((1005, 875, 1235, 883)), radius=4 * SCALE, fill='#edf4f5')
-    caption = '按真实 Bark 显示重绘 · 示例信息' if chinese else 'Redrawn from Bark on iOS · Example content'
-    text(draw, (744, 824), caption, 19, '#bbced5', chinese=chinese)
+        bottom = phone_card(156, 'demo-session · Approval requested',
+                            ['Status: Approval requested', 'Project: demo-app',
+                             'Model: gpt-6.1-sol', 'Tool: Bash'], 'now')
+        phone_card(bottom + 16, 'demo-session · Turn ended',
+                   ['Status: Turn ended', 'Project: demo-app', 'Model: gpt-6.1-sol'], '2m ago')
+    draw.rounded_rectangle(box((338, 525, 478, 529)), radius=2 * SCALE, fill='#e7f0f4')
+
+    # The Watch reference informs notification wrapping and the case silhouette.
+    # All hardware, strap and notification pixels are drawn from scratch.
+    def strap(y0, y1):
+        draw.rounded_rectangle(box((950, y0, 1118, y1)), radius=13 * SCALE,
+                               fill='#293139', outline='#3d454d', width=SCALE)
+        for x in range(956, 1114, 7):
+            draw.line(box((x, y0 + 5, x, y1 - 5)), fill='#374049', width=SCALE)
+        for y in range(y0 + 6, y1 - 3, 6):
+            draw.line(box((955, y, 1113, y)), fill='#222a31', width=SCALE)
+    strap(84, 164)
+    strap(438, 527)
+
+    shadow = Image.new('RGBA', image.size)
+    ImageDraw.Draw(shadow).rounded_rectangle(box((895, 139, 1175, 486)),
+                                            radius=65 * SCALE, fill=(7, 22, 31, 90))
+    image = Image.alpha_composite(image, shadow.filter(ImageFilter.GaussianBlur(10 * SCALE)))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle(box((1168, 233, 1185, 279)), radius=7 * SCALE,
+                           fill='#2b3035', outline='#697078', width=SCALE)
+    for y in range(240, 276, 5):
+        draw.line(box((1175, y, 1183, y)), fill='#12171b', width=SCALE)
+    draw.rounded_rectangle(box((1168, 306, 1176, 347)), radius=4 * SCALE, fill='#333a40')
+    surface((893, 130, 1174, 481), (98, 107, 116), (30, 36, 42), 63)
+    surface((896, 133, 1171, 478), (43, 48, 54), (8, 12, 16), 60)
+    surface((909, 149, 1158, 462), (7, 15, 26), (5, 11, 18), 48)
+    text(draw, (1087, 169), '9:41', 18, '#eef4fa')
+    draw.rounded_rectangle(box((917, 222, 1150, 449)), radius=25 * SCALE,
+                           fill='#263550', outline='#758cac', width=SCALE)
+    bark_icon(draw, 925, 203, 38)
+    timestamp = '现在' if chinese else 'now'
+    width = font(17, chinese=chinese).getlength(timestamp) / SCALE
+    text(draw, (1134 - width, 231), timestamp, 17, '#d1deef', chinese=chinese)
+    title = ['演示会话 ·', '审批请求'] if chinese else ['demo-session ·', 'Approval requested']
+    for index, line in enumerate(title):
+        text(draw, (930, 264 + index * 28), line, 22, '#f2f6fb', True, chinese)
+    body = ['状态：审批请求', '项目：demo-app'] if chinese else [
+        'Status: Approval', 'requested', 'Project: demo-app…']
+    for index, line in enumerate(body):
+        text(draw, (930, 326 + index * 28), line, 22, '#e4edf7', chinese=chinese)
+    draw.rounded_rectangle(box((1006, 453, 1059, 456)), radius=2 * SCALE, fill='#31435b')
+
     filename = 'notification-preview.zh-CN.png' if chinese else 'notification-preview.png'
     path = HERE / filename
     image.convert('RGB').resize(SIZE, Image.Resampling.LANCZOS).save(path, optimize=True)
     print(path)
-
 
 if __name__ == '__main__':
     for language in ('en', 'zh'):

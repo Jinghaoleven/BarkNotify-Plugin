@@ -4,9 +4,9 @@ Receive remote Codex CLI session alerts on your iPhone through [Bark](https://gi
 
 [简体中文](README.zh-CN.md) · [Commands](docs/usage.md) · [Network extension](extensions/reverse-socks/README.md)
 
-![Bark on iPhone showing a Codex approval request and turn-end notification for an example project](docs/assets/notification-preview.png)
-
-*Redrawn from Bark on iOS with fictional session and project names. Appearance varies with iOS settings.*
+<p align="center">
+  <img src="docs/assets/notification-preview.png" alt="Bark notifications on iPhone and a paired Apple Watch" width="720">
+</p>
 
 ## Get started
 
@@ -27,7 +27,7 @@ Requires macOS or Linux, Codex plugin management, Git, curl, and **Python 3.11+*
    Run the setup command Codex provides in a separate terminal **on the same host**. Paste the address at the hidden prompt. **Keep the address and key out of chat.** Add “Use Chinese notifications” if preferred. [Manual setup](docs/usage.md#manual-setup) is also available.
 4. Confirm **BarkNotify-Plugin · Test** appears on your phone. Review and trust Bark in `/hooks`. If the hooks are missing after installation, restart or resume Codex and review them again. Finish a short turn to verify automatic delivery.
 
-Bark can be closed after setup. Launchers sharing `CODEX_HOME` use one installation.
+Bark can be closed after setup. On a paired Apple Watch, enable Bark notification mirroring in the Watch app. Launchers sharing `CODEX_HOME` use one installation.
 
 ## Everyday use
 
