@@ -308,7 +308,7 @@ def send(config, title, body, timeout=None, key=None):
         result = subprocess.run([
             "curl", "-q", "--silent", "--show-error", "--fail", "--request", "POST",
             "--header", "Content-Type: application/json; charset=utf-8", "--data-binary", "@-",
-            "--connect-timeout", str(min(budget, 2)), "--max-time", str(budget),
+            "--connect-timeout", str(min(budget, 4)), "--max-time", str(budget),
             "--write-out", "\n%{http_code}",
             *proxy_args,
             config["server_url"].rstrip("/") + "/push",

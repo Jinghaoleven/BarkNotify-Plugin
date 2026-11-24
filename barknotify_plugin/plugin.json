@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "barknotify",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Bark push notifications for Codex sessions.",
   "license": "Apache-2.0",
   "keywords": [

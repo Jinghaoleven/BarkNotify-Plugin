@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1 — Beta
+
+- Allow up to four seconds for push connection setup, including SOCKS negotiation and TLS, within the existing total request budget. Preserve the shorter budget for interrupt and session-end notifications.
+
 ## 0.5.0 — Beta
 
 - Add a dedicated Bark HTTP(S)/SOCKS5 proxy and a no-push network check using the same route as delivery.

@@ -196,6 +196,67 @@ class BarkTests(unittest.TestCase):
                 proxy.shutdown()
                 thread.join()
 
+    def test_push_accepts_socks_handshake_longer_than_two_seconds(self):
+        test = self
+
+        class DelayedSocksHandler(socketserver.BaseRequestHandler):
+            def exact(self, count):
+                data = b""
+                while len(data) < count:
+                    chunk = self.request.recv(count - len(data))
+                    if not chunk:
+                        raise EOFError()
+                    data += chunk
+                return data
+
+            def handle(self):
+                try:
+                    self.request.settimeout(5)
+                    version, methods = self.exact(2)
+                    self.exact(methods)
+                    if version != 5:
+                        return
+                    time.sleep(2.2)  # A healthy tunnel can exceed the old connect limit.
+                    self.request.sendall(b"\x05\x00")
+                    version, command, _, address_type = self.exact(4)
+                    if version != 5 or command != 1:
+                        return
+                    if address_type == 1:
+                        self.exact(4)
+                    elif address_type == 3:
+                        self.exact(self.exact(1)[0])
+                    else:
+                        return
+                    self.exact(2)
+                    with socket.create_connection(("127.0.0.1", test.server.server_port), timeout=1) as upstream:
+                        self.request.sendall(b"\x05\x00\x00\x01\x7f\x00\x00\x01\x00\x00")
+                        peers = (self.request, upstream)
+                        while True:
+                            readable, _, _ = select.select(peers, [], [], 3)
+                            if not readable:
+                                return
+                            for peer in readable:
+                                data = peer.recv(65536)
+                                if not data:
+                                    return
+                                (upstream if peer is self.request else self.request).sendall(data)
+                except (EOFError, OSError):
+                    return
+
+        with socketserver.ThreadingTCPServer(("127.0.0.1", 0), DelayedSocksHandler) as proxy:
+            proxy.daemon_threads = True
+            thread = threading.Thread(target=proxy.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with patch.dict(os.environ, self.env):
+                    config = {**bark.load_config(), "proxy_url": "socks5h://127.0.0.1:" + str(proxy.server_address[1])}
+                    bark.send(config, "Delayed connection", "Still delivered")
+                self.assertEqual(len(self.requests), 1)
+                self.assertEqual(self.requests[0][1]["title"], "Delayed connection")
+            finally:
+                proxy.shutdown()
+                thread.join()
+
     def test_approval_never_returns_a_decision(self):
         result = self.hook("PermissionRequest", tool_name="Bash", tool_input={"command": "password", "description": "private reason"})
         self.assertEqual(json.loads(result.stdout), {})

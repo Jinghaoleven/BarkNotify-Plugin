@@ -38,7 +38,7 @@ def main():
                                         capture_output=True, text=True, timeout=15)
                 assert result.returncode == 0, result.stderr
                 return result.stdout
-            assert "0.5.0" in run("barknotify_plugin", "--version")
+            assert "0.5.1" in run("barknotify_plugin", "--version")
             run("barknotify_plugin", "install", "--dry-run")
             run("barknotify_plugin", "setup", "--key-stdin", input="http://127.0.0.1:" + str(server.server_port) + "/artifact-key")
             run("barknotify_plugin", "disable")
